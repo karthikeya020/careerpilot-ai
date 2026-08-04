@@ -4,41 +4,50 @@ Last verified: 2026-08-05, "Final Beast Master" pass in progress. Complete
 so far, each independently tested and Docker-verified: **P0 (Interview
 Arena)**, **Career Twin `twin-v2` safeguard**, **P1 (Experiment Lab +
 Simulation Engine)**, **Responsible AI Center**, **Research Benchmark Lab**
-(routing comparison + graph-vs-vector + calibration), and a **security
-review pass** (3 real medium-severity fixes: audio upload size/type
-validation, Redis-backed auth rate limiting). See
+(routing comparison + graph-vs-vector + calibration), a **security review
+pass** (3 real medium-severity fixes: audio upload size/type validation,
+Redis-backed auth rate limiting), **minimal role dashboards** (faculty/
+placement/recruiter/admin), **Competition Mode**, a **premium UI pass**
+(1 real bug found and fixed: toast notifications blocking the header
+theme-toggle button), and a **production engineering pass** (consolidated
+`/health/dependencies` endpoint; confirmed request-ID middleware and
+structured logging were already in place from Phase 2; live-verified
+degraded/recovered status against the real Docker stack). See
 `FINAL_BEAST_MASTER_EXECUTION_PLAN.md` for the full sequencing and honest
 scoping statement; `PHASE_3_EXECUTION_PLAN.md` for the P0/P1 narrative.
 Phase 2's original validation remains below, unchanged and still green.
 
-## Latest quality gate (2026-08-05, after the security review pass)
+## Latest quality gate (2026-08-05, after the production engineering pass)
 
 ```
-backend:  pytest -q                         -> 152 passed
+backend:  pytest -q                         -> 159 passed
           ruff check app tests              -> clean
-          mypy app --ignore-missing-imports -> clean (148 files)
+          mypy app --ignore-missing-imports -> clean (151 files)
 frontend: tsc --noEmit / eslint             -> clean
-          vitest run                        -> 59 passed
-          next build                        -> succeeds (19 routes)
-docker:   backend + frontend images rebuilt; all 5 services healthy
-git:      4 commits this pass (e1f8bf5 P0+P1, efb2c28 Responsible AI,
-          654ea12 Research Lab, e238b16 Security review) -- all on `main`,
-          nothing staged/uncommitted
+          vitest run                        -> 68 passed (17 files)
+          next build                        -> succeeds (24 routes)
+docker:   backend rebuilt this pass; all 5 services healthy;
+          live-verified GET /api/v1/health/dependencies: "ok" with all 3
+          dependencies true, then stopped neo4j+redis and confirmed
+          "degraded" with database still true (base /health stayed 200
+          throughout), then restarted both and confirmed recovery back
+          to "ok"
+git:      9 commits so far this pass (e1f8bf5 P0+P1, efb2c28 Responsible
+          AI, 654ea12 Research Lab, e238b16 Security review, 7943578 role
+          dashboards, 356b6bc Competition Mode, 1765743 presentation/
+          research docs, 8c7aac7 toast/theme-toggle fix, 6a94ea4
+          dependency-health endpoint) -- all on `main`, nothing
+          staged/uncommitted
 ```
 
 ## Exact next unfinished task
 
-Continuing the Final Beast Master sequence from
-`FINAL_BEAST_MASTER_EXECUTION_PLAN.md` §2: **Milestone D (minimal role
-dashboards)** is next, then Competition Mode, then presentation/research
-docs, then a targeted premium UI pass, demo-dataset consistency,
-production engineering, and final acceptance testing. Not yet started:
-faculty/placement/recruiter/admin dashboards, `/competition` route, the
-~20 presentation/research doc deliverables, and the full 95-item release
-gate. All 5 roles (`student`/`faculty`/`recruiter`/`placement_staff`/
-`administrator`) already exist seeded in the `roles` table with a working
-`require_role()` RBAC primitive -- no new role infrastructure is needed,
-only the dashboard routes themselves.
+Task 25 (production engineering + offline resilience) is complete. Next:
+**Task 26 -- final testing, acceptance matrix, completion report**: a full
+backend/frontend gate re-run (done above), an e2e competition smoke test,
+`docs/implementation/FINAL_ACCEPTANCE_MATRIX.md`,
+`docs/implementation/FINAL_RELEASE_COMPLETION_REPORT.md`, this file's
+final update, and the mandated 30-item "FINAL RESPONSE FORMAT" reply.
 
 ## Status: Phase 3 P0 + P1 complete
 
