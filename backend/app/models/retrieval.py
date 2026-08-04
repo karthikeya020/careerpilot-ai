@@ -12,6 +12,7 @@ SOURCE_TYPE_RESUME = "resume"
 SOURCE_TYPE_JOB_DESCRIPTION = "job_description"
 SOURCE_TYPE_RESOURCE = "resource"
 SOURCE_TYPE_EVIDENCE_NOTE = "evidence_note"
+SOURCE_TYPE_CONCEPT = "concept"
 
 
 class RetrievalDocument(UUIDPKMixin, Base):

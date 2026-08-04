@@ -490,6 +490,51 @@ export interface ResponsibleAIOverviewOut {
   non_claims: string[];
 }
 
+export interface RoutingExperimentOut {
+  run_id: string;
+  dataset_name: string;
+  case_count: number;
+  agreement_rate_by_variant: Record<string, number>;
+  rows: Record<string, unknown>[];
+}
+
+export interface GraphVsVectorExperimentOut {
+  run_id: string;
+  case_count: number;
+  indexed_documents: number;
+  graph_traversal_accuracy: number | null;
+  vector_only_accuracy: number | null;
+  rows: Record<string, unknown>[];
+  methodology_note: string;
+  sample_size_warning: string;
+}
+
+export interface EvaluationRunSummaryOut {
+  id: string;
+  name: string;
+  dataset_name: string;
+  notes: string;
+  created_at: string;
+  result_count: number;
+}
+
+export interface ReliabilityBinOut {
+  bin_start: number;
+  bin_end: number;
+  count: number;
+  mean_confidence: number | null;
+  accuracy: number | null;
+}
+
+export interface CalibrationReportOut {
+  sample_size: number;
+  brier_score: number | null;
+  expected_calibration_error: number | null;
+  bins: ReliabilityBinOut[];
+  high_confidence_error_rate: number | null;
+  preliminary: boolean;
+}
+
 export interface DashboardOut {
   student_name: string;
   onboarding_completed: boolean;
