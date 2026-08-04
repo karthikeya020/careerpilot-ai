@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "careerpilot-backend"
+version = "0.1.0"
+description = "Backend for CareerPilot AI"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "pydantic-settings",
+  "pydantic[email]",
+  "sqlalchemy",
+  "psycopg[binary]",
+  "alembic",
+  "python-multipart",
+  "httpx",
+  "redis",
+  "bcrypt",
+  "pyjwt",
+  "pypdf",
+  "python-docx",
+  "neo4j",
+  "anthropic",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "ruff", "mypy"]
+
+# The backend repo root is a flat-layout containing sibling directories
+# (alembic/, tests/) that are not part of the installable Python package.
+# Without this, setuptools' flat-layout auto-discovery finds both `app` and
+# `alembic` as top-level packages and refuses to build. Alembic migration
+# files still ship in the Docker image via an explicit COPY in the
+# Dockerfile -- they just aren't installed as an importable package, which
+# they never needed to be (alembic the CLI tool discovers them by path).
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+exclude = ["alembic*", "tests*"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# B008: FastAPI's `Depends(...)` in argument defaults is the documented,
+# idiomatic pattern for dependency injection -- not a real bug here.
+# BLE001: intentional broad `except Exception` at two boundaries (file
+# parsing libraries raise inconsistent error types; the top-level unhandled-
+# error handler must catch everything) is deliberate, not sloppy.
+ignore = ["B008", "BLE001"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
