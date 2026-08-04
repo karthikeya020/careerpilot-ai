@@ -6,8 +6,10 @@ from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
 from app.api.career_twin import router as career_twin_router
 from app.api.dashboard import router as dashboard_router
+from app.api.experiments import router as experiments_router
 from app.api.graphrag import router as graphrag_router
 from app.api.health import router as health_router
+from app.api.interviews import router as interviews_router
 from app.api.job_descriptions import router as job_descriptions_router
 from app.api.missions import router as missions_router
 from app.api.onboarding import router as onboarding_router
@@ -54,6 +56,8 @@ app.include_router(graphrag_router, prefix=settings.api_v1_prefix)
 app.include_router(assessments_router, prefix=settings.api_v1_prefix)
 app.include_router(resources_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_center_router, prefix=settings.api_v1_prefix)
+app.include_router(interviews_router, prefix=settings.api_v1_prefix)
+app.include_router(experiments_router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/")

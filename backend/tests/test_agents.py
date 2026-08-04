@@ -6,14 +6,17 @@ behavior where relevant.
 
 import uuid
 
-from app.agents.assessment_agent import AssessmentGradingInput, AssessmentAgent
+from app.agents.assessment_agent import AssessmentAgent, AssessmentGradingInput
 from app.agents.ats_benchmark_agent import ATSBenchmarkAgent, ATSBenchmarkInput
 from app.agents.career_coach_agent import CareerCoachAgent, CareerCoachInput
 from app.agents.consensus_agent import ConsensusAgent, ConsensusInput, ConsensusVote
 from app.agents.critic_agent import CriticAgent, CriticClaim, CriticInput
 from app.agents.graphrag_agent import GraphRAGAgent, GraphRAGInput
 from app.agents.memory_agent import MemoryAgent, MemoryInput
-from app.agents.resource_recommendation_agent import ResourceRecommendationAgent, ResourceRecommendationInput
+from app.agents.resource_recommendation_agent import (
+    ResourceRecommendationAgent,
+    ResourceRecommendationInput,
+)
 from app.agents.resume_intelligence_agent import ResumeIntelligenceAgent, ResumeIntelligenceInput
 from app.agents.supervisor_agent import SupervisorAgent, SupervisorInput
 

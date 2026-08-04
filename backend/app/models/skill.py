@@ -19,6 +19,7 @@ EVIDENCE_TYPE_JOB_MATCH = "job_description_match"
 EVIDENCE_TYPE_ONBOARDING = "onboarding"
 EVIDENCE_TYPE_PROJECT = "project"
 EVIDENCE_TYPE_ASSESSMENT = "technical_assessment"
+EVIDENCE_TYPE_INTERVIEW = "interview"
 
 
 class Skill(UUIDPKMixin, Base):

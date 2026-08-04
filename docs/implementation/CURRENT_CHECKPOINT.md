@@ -1,10 +1,104 @@
 # Current Checkpoint
 
-Last verified: 2026-08-04, Phase 2 (AI Intelligence Core) **final
-acceptance validation**, against a real Docker Desktop environment with
-PostgreSQL 16, Redis 7, and Neo4j 5 — including two restarts, a live
-Neo4j fail/recover cycle, and a real browser session. See
-`PHASE_2_COMPLETION_REPORT.md` §18 for the full narrative.
+Last verified: 2026-08-05, Phase 3 **P0 (Interview Arena core loop) +
+Career Twin small-sample safeguard (`twin-v2`) + P1 (Career Experiment Lab
++ Simulation Engine)** complete, against the same real Docker Desktop
+environment (PostgreSQL 16, Redis 7, Neo4j 5) — rebuilt images, live
+browser walkthroughs, full quality gates. See `PHASE_3_EXECUTION_PLAN.md`
+§4 for the full narrative; Phase 2's original validation remains below,
+unchanged and still green.
+
+## Status: Phase 3 P0 + P1 complete
+
+### Career Experiment Lab + Simulation Engine (P1)
+
+Deterministic, versioned (`sim-v1`) what-if simulation over hour
+allocations (skill + activity type + hours, mixed allocations supported),
+grounded in the student's real Career Twin, evidence diversity, concept
+dependencies, their own job description's requirements, and their own
+historical Career Twin trend — never an LLM-computed number.
+`ExperimentExplainerAgent` may restate the numbers in prose but has no path
+to alter them. New: `backend/app/simulation/engine.py`,
+`backend/app/services/experiment_service.py`, `backend/app/agents/
+experiment_explainer_agent.py`, `backend/app/api/experiments.py`,
+`backend/app/schemas/experiment.py`, `backend/app/models/experiment.py`,
+migration `957a79bda179`, frontend `/experiment-lab`. Full formula in
+`docs/implementation/EXPERIMENT_LAB_SIMULATION.md`.
+
+Verified live: ran "20h SQL", "20h DSA", and "20h Communication" scenarios
+against a real student's Career Twin through the Docker stack, then
+compared all three side by side (assumptions, evidence-used counts, and
+the mandatory disclaimer all correct on every card).
+
+### Quality gate for this checkpoint (cumulative)
+
+```
+backend:  pytest -q                         -> 133 passed (117 P0-checkpoint baseline + 16 new P1 tests)
+          ruff check app tests              -> clean
+          mypy app --ignore-missing-imports -> clean (139 files)
+frontend: tsc --noEmit / eslint             -> clean
+          vitest run                        -> 53 passed (50 P0-checkpoint baseline + 3 new P1 tests)
+          next build                        -> succeeds (19 routes, incl. /experiment-lab)
+docker:   backend + frontend images rebuilt; all 5 services healthy;
+          migration head 957a79bda179
+```
+
+### Interview Arena (P0)
+
+Full voice/typed mock-interview loop: session start (6 modes) → question →
+recording-or-typed answer → CARE-routed multi-agent evaluation → Interview
+Replay → Trust Center trace → Career Twin evidence. Real route diversity
+(confirmed live, not just asserted): a strong, on-topic technical answer
+settles on `single_agent`; a thin/off-topic/ungrounded answer is honestly
+flagged `evidence_conflict=True` and escalates toward `multi_agent`/
+`critic_reflection`.
+
+New: `backend/app/models/interview.py`, `backend/app/services/
+{interview_service,speech_to_text}.py`, 5 new agents (`communication_agent`,
+`technical_agent`, `hr_agent`, `resume_evidence_agent`, `jd_alignment_agent`),
+`backend/app/api/interviews.py`, `backend/app/schemas/interview.py`,
+migration `ccca34eecf1f`, frontend `/interview`, `/interview/[sessionId]`,
+`/interview/[sessionId]/replay`.
+
+### Career Twin small-sample safeguard (`twin-v2`)
+
+A scoring-integrity review after the first live Interview Arena walkthrough
+found that a single two-question session had produced a Career Twin
+snapshot reading "Technical 90%, Communication 100%" — technically paired
+with low confidence (28%/37%), but not visibly guarded against, and with no
+distinction between "evidence repeated from one source" and "evidence from
+independent sources." Fixed with three deterministic, versioned levers in
+`backend/app/career_twin/scoring.py` (formula bumped `twin-v1` →
+`twin-v2`): evidence-diversity weighting, prior-weighted (Bayesian
+shrinkage) scoring that pulls the *stored score itself* toward a neutral
+0.5 prior when evidence is sparse/narrow (not just confidence), and a hard
+confidence cap (0.50) plus explicit `is_low_sample`/`low_sample_notice`
+fields below the stability thresholds (3+ evidence items, 2+ distinct
+source types). Verified live: the same test account's next interview
+session produced version 2 with Technical shrunk 90%→60% (confidence
+14%), Communication 100%→75% (confidence 28%), both displaying "Strong
+performance in this session, but more evidence is required to establish
+long-term proficiency." Full rule in
+`docs/implementation/CAREER_TWIN_SCORING.md` "Small-sample safeguard";
+tests in `backend/tests/test_career_twin_small_sample_safeguard.py` (one
+strong answer, several strong answers from one source, conflicting
+evidence, repeated evidence from one source, evidence from multiple
+independent sources — all 6 passing). Migration `7ba5f89c3126`.
+
+### Quality gate for this checkpoint
+
+```
+backend:  pytest -q                         -> 117 passed (111 interview-arena baseline + 6 new safeguard tests)
+          ruff check app tests              -> clean
+          mypy app --ignore-missing-imports -> clean (132 files)
+frontend: tsc --noEmit / eslint             -> clean
+          vitest run                        -> 50 passed (48 interview-arena baseline + 2 new safeguard-label tests)
+          next build                        -> succeeds (18 routes, incl. 2 new dynamic interview routes)
+docker:   backend + frontend images rebuilt; all 5 services healthy;
+          migration head 7ba5f89c3126; both the Interview Arena flow and
+          the twin-v2 safeguard verified live in a real browser against
+          this stack (not just automated tests)
+```
 
 ## Status: Phase 2 fully accepted (re-verified)
 

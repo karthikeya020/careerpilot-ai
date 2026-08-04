@@ -60,6 +60,14 @@ export interface ReadinessComponentOut {
   explanation: string;
   trend: number | null;
   uncertainty: number | null;
+  // twin-v2 small-sample safeguard: evidence_diversity is the count of
+  // distinct evidence source types behind this component; is_low_sample and
+  // low_sample_notice surface when the score/confidence were shrunk/capped
+  // because the evidence is too sparse or too narrowly sourced to support a
+  // confident estimate (see docs/implementation/CAREER_TWIN_SCORING.md).
+  evidence_diversity: number;
+  is_low_sample: boolean;
+  low_sample_notice: string | null;
 }
 
 export interface CareerTwinSnapshotOut {
@@ -318,6 +326,149 @@ export interface SystemTrustOut {
   components_scored: number;
   components_total: number;
   total_evidence_count: number;
+}
+
+export type InterviewMode = "hr" | "technical" | "resume" | "role_specific" | "company_context" | "mixed";
+
+export interface InterviewQuestionOut {
+  id: string;
+  order_index: number;
+  mode: InterviewMode;
+  prompt: string;
+  question_source: string;
+}
+
+export interface InterviewAnswerOut {
+  id: string;
+  question_id: string;
+  transcript: string;
+  transcript_source: "typed" | "live_stt" | "deterministic_demo" | "unavailable";
+  audio_duration_seconds: number | null;
+  has_audio: boolean;
+  submitted_at: string;
+}
+
+export interface TimelineMarkerOut {
+  type: string;
+  label: string;
+  position_percent: number;
+}
+
+export interface EvidenceCheckOut {
+  claim: string;
+  classification:
+    | "supported_by_resume_evidence"
+    | "partially_supported"
+    | "not_currently_supported"
+    | "contradicted_by_uploaded_evidence"
+    | "insufficient_evidence";
+  explanation: string;
+}
+
+export interface CommunicationMetricsOut {
+  word_count: number;
+  filler_word_count: number;
+  filler_ratio: number;
+  sentence_count: number;
+  sentence_completeness_ratio: number;
+  speaking_rate_wpm: number | null;
+  star_components_found: string[];
+  clarity_score: number;
+  conciseness_score: number;
+  professional_communication_score: number;
+}
+
+export interface InterviewEvaluationOut {
+  id: string;
+  care_execution_id: string | null;
+  dimension_scores: Record<string, number>;
+  overall_score: number;
+  confidence: number;
+  agreement: number | null;
+  strengths: string[];
+  improvements: string[];
+  evidence_checks: EvidenceCheckOut[];
+  communication_metrics: CommunicationMetricsOut;
+  timeline_markers: TimelineMarkerOut[];
+  better_answer_framework: string;
+  requires_human_review: boolean;
+  created_at: string;
+}
+
+export interface InterviewSessionOut {
+  id: string;
+  mode: InterviewMode;
+  target_role_id: string | null;
+  job_description_id: string | null;
+  company_name: string | null;
+  status: "in_progress" | "completed";
+  overall_score: number | null;
+  overall_confidence: number | null;
+  started_at: string;
+  completed_at: string | null;
+}
+
+export interface InterviewProgressOut {
+  session: InterviewSessionOut;
+  answer: InterviewAnswerOut | null;
+  evaluation: InterviewEvaluationOut | null;
+  next_question: InterviewQuestionOut | null;
+  is_complete: boolean;
+}
+
+export interface InterviewReplayItemOut {
+  question: InterviewQuestionOut;
+  answer: InterviewAnswerOut;
+  evaluation: InterviewEvaluationOut | null;
+}
+
+export interface InterviewReplayOut {
+  session: InterviewSessionOut;
+  items: InterviewReplayItemOut[];
+}
+
+export interface AllocationRequest {
+  skill_name: string;
+  activity_type: string;
+  hours: number;
+}
+
+export interface ComponentChangeOut {
+  component_type: string;
+  current_score: number | null;
+  simulated_score: number;
+  delta: number;
+  confidence: number;
+  uncertainty: number;
+  assumptions: string[];
+  evidence_used: string[];
+}
+
+export interface ExperimentResultOut {
+  id: string;
+  engine_version: string;
+  baseline_snapshot_id: string | null;
+  current_overall_score: number | null;
+  simulated_overall_score: number | null;
+  overall_score_delta: number | null;
+  overall_confidence: number;
+  overall_uncertainty: number;
+  component_changes: ComponentChangeOut[];
+  assumptions: string[];
+  evidence_used: string[];
+  explanation: string;
+  disclaimer: string;
+  created_at: string;
+}
+
+export interface ExperimentScenarioOut {
+  id: string;
+  name: string;
+  target_role_id: string | null;
+  time_horizon_days: number;
+  allocations: AllocationRequest[];
+  created_at: string;
+  result: ExperimentResultOut | null;
 }
 
 export interface DashboardOut {

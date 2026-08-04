@@ -7,6 +7,7 @@ with no evidence, and it always writes a paired DecisionTrace + AuditEvent so
 the update is traceable end to end.
 """
 
+import statistics
 import uuid
 from dataclasses import dataclass
 
@@ -37,7 +38,7 @@ from app.models.skill import (
 from app.models.student import StudentProfile
 from app.schemas.career_twin import CareerTwinSnapshotOut, ReadinessComponentOut
 
-SCORING_RULE_VERSION = "twin-v1"
+SCORING_RULE_VERSION = "twin-v2"
 
 # How many evidence items a component needs before confidence saturates to
 # the raw evidence-weighted average. Fewer items scale confidence down
@@ -50,6 +51,43 @@ EVIDENCE_SATURATION = {
     COMPONENT_PORTFOLIO: 2,
     COMPONENT_ROLE_ALIGNMENT: 3,
 }
+
+# --- twin-v2 small-sample safeguard -----------------------------------
+# A single session (e.g. two interview answers) must never read as a
+# confidently established skill level. Three independent levers enforce
+# this, all deterministic and versioned here (see
+# docs/implementation/CAREER_TWIN_SCORING.md "Small-sample safeguard"):
+#
+# 1. Evidence-diversity weighting: evidence repeated from a single
+#    `source_object_type` (e.g. five answers in one interview session)
+#    counts less than the same volume spread across independent sources
+#    (interview + resume + assessment). `diversity_factor` captures this.
+# 2. Prior-weighted (shrinkage) scoring: the displayed score is pulled
+#    toward a neutral 0.5 prior in proportion to how little it can be
+#    trusted (`trust_factor = volume_factor * diversity_factor`) -- a
+#    perfect 0.9 raw score from one narrow session reports well below 0.9,
+#    not at face value.
+# 3. Hard confidence cap: below the minimum evidence count or source
+#    diversity, confidence is capped outright regardless of how high the
+#    raw evidence confidence was, and `is_low_sample` is set so the UI can
+#    render an explicit "more evidence needed" notice.
+#
+# A fourth, independent signal -- internal disagreement across evidence
+# items (population stdev of normalized_score) -- further discounts
+# confidence when evidence for the same component actively conflicts.
+MIN_EVIDENCE_FOR_STABLE_CONFIDENCE = 3
+MIN_SOURCE_DIVERSITY_TARGET = 2
+LOW_SAMPLE_CONFIDENCE_CAP = 0.50
+NEUTRAL_SCORE_PRIOR = 0.50
+HIGH_DISAGREEMENT_THRESHOLD = 0.25
+
+LOW_SAMPLE_NOTICE = (
+    "Strong performance in this session, but more evidence is required to establish long-term proficiency."
+)
+CONFLICTING_EVIDENCE_NOTICE = (
+    "Evidence for this component disagrees significantly across sources -- "
+    "treat this score as provisional until more consistent evidence accumulates."
+)
 
 COMPONENT_EXPLANATIONS_EMPTY = {
     COMPONENT_RESUME: "No resume has been uploaded and parsed yet.",
@@ -70,6 +108,8 @@ class ComponentResult:
     evidence_count: int
     evidence_ids: list[str]
     explanation: str
+    evidence_diversity: int = 0
+    is_low_sample: bool = False
 
 
 def _score_component(component_type: str, evidence: list[SkillEvidence]) -> ComponentResult:
@@ -85,26 +125,56 @@ def _score_component(component_type: str, evidence: list[SkillEvidence]) -> Comp
         )
 
     total_weight = sum(float(e.weight) for e in evidence) or 1.0
-    weighted_score = sum(float(e.normalized_score) * float(e.weight) for e in evidence) / total_weight
+    raw_weighted_score = sum(float(e.normalized_score) * float(e.weight) for e in evidence) / total_weight
     raw_confidence = sum(float(e.confidence) * float(e.weight) for e in evidence) / total_weight
     saturation = EVIDENCE_SATURATION[component_type]
     volume_factor = min(1.0, len(evidence) / saturation)
-    final_confidence = round(raw_confidence * volume_factor, 4)
 
-    explanation = (
-        f"Derived from {len(evidence)} evidence item(s) with a weighted average score of "
-        f"{round(weighted_score, 2)} and raw confidence {round(raw_confidence, 2)}, scaled by an "
-        f"evidence-volume factor of {round(volume_factor, 2)} (saturates at {saturation} items)."
-    )
+    distinct_sources = len({e.source_object_type for e in evidence})
+    diversity_factor = min(1.0, distinct_sources / MIN_SOURCE_DIVERSITY_TARGET)
+    trust_factor = volume_factor * diversity_factor
+
+    scores = [float(e.normalized_score) for e in evidence]
+    disagreement = round(statistics.pstdev(scores), 4) if len(scores) > 1 else 0.0
+    conflicting = disagreement > HIGH_DISAGREEMENT_THRESHOLD
+
+    # Prior-weighted shrinkage: sparse and/or single-source evidence is
+    # pulled toward a neutral prior instead of letting a couple of items
+    # alone claim an extreme score.
+    score = round(raw_weighted_score * trust_factor + NEUTRAL_SCORE_PRIOR * (1 - trust_factor), 4)
+
+    confidence = raw_confidence * volume_factor * diversity_factor
+    if conflicting:
+        confidence *= 1 - disagreement
+
+    is_low_sample = len(evidence) < MIN_EVIDENCE_FOR_STABLE_CONFIDENCE or distinct_sources < MIN_SOURCE_DIVERSITY_TARGET
+    if is_low_sample:
+        confidence = min(confidence, LOW_SAMPLE_CONFIDENCE_CAP)
+    confidence = round(confidence, 4)
+
+    explanation_parts = [
+        (
+            f"Derived from {len(evidence)} evidence item(s) from {distinct_sources} distinct source(s), "
+            f"raw weighted score {round(raw_weighted_score, 2)}, raw confidence {round(raw_confidence, 2)}, "
+            f"shrunk toward a neutral prior by a trust factor of {round(trust_factor, 2)} "
+            f"(volume {round(volume_factor, 2)} x diversity {round(diversity_factor, 2)})."
+        )
+    ]
+    if conflicting:
+        explanation_parts.append(f"{CONFLICTING_EVIDENCE_NOTICE} (disagreement {disagreement}).")
+    if is_low_sample:
+        explanation_parts.append(LOW_SAMPLE_NOTICE)
 
     return ComponentResult(
         component_type=component_type,
         status=STATUS_SCORED,
-        score=round(weighted_score, 4),
-        confidence=final_confidence,
+        score=score,
+        confidence=confidence,
         evidence_count=len(evidence),
         evidence_ids=[str(e.id) for e in evidence],
-        explanation=explanation,
+        explanation=" ".join(explanation_parts),
+        evidence_diversity=distinct_sources,
+        is_low_sample=is_low_sample,
     )
 
 
@@ -201,6 +271,8 @@ def recompute_twin(db: Session, student_profile: StudentProfile, reason: str) ->
                 evidence_count=c.evidence_count,
                 explanation=c.explanation,
                 evidence_ids=c.evidence_ids,
+                evidence_diversity=c.evidence_diversity,
+                is_low_sample=c.is_low_sample,
             )
         )
         all_evidence_ids.extend(c.evidence_ids)
@@ -269,6 +341,9 @@ def build_career_twin_snapshot_out(db: Session, snapshot: CareerTwinSnapshot) ->
                 explanation=component.explanation,
                 trend=trend,
                 uncertainty=uncertainty,
+                evidence_diversity=component.evidence_diversity,
+                is_low_sample=component.is_low_sample,
+                low_sample_notice=LOW_SAMPLE_NOTICE if component.is_low_sample else None,
             )
         )
 

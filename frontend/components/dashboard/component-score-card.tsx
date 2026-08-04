@@ -1,3 +1,4 @@
+import { AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import type { ReadinessComponentOut } from "@/types/api";
@@ -22,6 +23,17 @@ export function ComponentScoreCard({ component }: { component: ReadinessComponen
         <span>{component.evidence_count} evidence item{component.evidence_count === 1 ? "" : "s"}</span>
         {isScored ? <span>Confidence {formatPercent(component.confidence)}</span> : null}
       </div>
+      {isScored && (
+        <p className="mt-1 text-xs text-muted">
+          {component.evidence_diversity} independent source{component.evidence_diversity === 1 ? "" : "s"}
+        </p>
+      )}
+      {component.is_low_sample && component.low_sample_notice && (
+        <div className="mt-2 flex items-start gap-1.5 rounded-[var(--radius-md)] border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>{component.low_sample_notice}</span>
+        </div>
+      )}
       <p className="mt-2 text-xs text-muted">{component.explanation}</p>
     </div>
   );

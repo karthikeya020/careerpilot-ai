@@ -11,6 +11,13 @@ from app.models.audit import AuditEvent, DecisionTrace
 from app.models.care import AgentRun, CareExecution
 from app.models.career_twin import CareerTwinSnapshot, ReadinessComponent
 from app.models.evaluation import EvaluationResult, EvaluationRun
+from app.models.experiment import ExperimentResult, ExperimentScenario
+from app.models.interview import (
+    InterviewAnswer,
+    InterviewEvaluation,
+    InterviewQuestion,
+    InterviewSession,
+)
 from app.models.job_description import JobDescription, JobRequirement
 from app.models.mission import LearningMission
 from app.models.resource import Resource
@@ -34,6 +41,12 @@ __all__ = [
     "DecisionTrace",
     "EvaluationResult",
     "EvaluationRun",
+    "ExperimentResult",
+    "ExperimentScenario",
+    "InterviewAnswer",
+    "InterviewEvaluation",
+    "InterviewQuestion",
+    "InterviewSession",
     "JobDescription",
     "JobRequirement",
     "LearningMission",

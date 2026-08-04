@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -65,5 +65,13 @@ class ReadinessComponent(UUIDPKMixin, Base):
     evidence_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
     evidence_ids: Mapped[list] = mapped_column(JSONBType(), default=list, nullable=False)
+    # twin-v2 small-sample safeguard (see docs/implementation/CAREER_TWIN_SCORING.md
+    # "Small-sample safeguard"): evidence_diversity is the count of distinct
+    # source_object_type values behind this component's evidence;
+    # is_low_sample is true when evidence_count or evidence_diversity falls
+    # below the stability thresholds, in which case `score`/`confidence` were
+    # already shrunk/capped and `explanation` carries the low-sample notice.
+    evidence_diversity: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_low_sample: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     snapshot: Mapped["CareerTwinSnapshot"] = relationship(back_populates="components")

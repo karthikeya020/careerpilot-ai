@@ -61,9 +61,15 @@ def test_recompute_twin_scores_component_with_evidence_and_versions_up(db_sessio
     first = recompute_twin(db_session, profile, reason="first pass")
     technical = {c.component_type: c for c in first.components}[COMPONENT_TECHNICAL]
     assert technical.status == "scored"
-    assert float(technical.score) == 0.8
+    # twin-v2 small-sample safeguard: a single evidence item from one source
+    # is shrunk toward the neutral 0.5 prior, not reported at face value --
+    # raw 0.8 with volume_factor=1/4, diversity_factor=1/2 (trust 0.125)
+    # -> 0.8*0.125 + 0.5*0.875 = 0.5375.
+    assert float(technical.score) == 0.5375
     assert technical.evidence_count == 1
-    # single low-weight/confidence item -> well below full confidence
+    assert technical.evidence_diversity == 1
+    assert technical.is_low_sample is True
+    # single low-weight/confidence item from one source -> hard-capped, well below full confidence
     assert 0 < float(technical.confidence) < 0.4
 
     second = recompute_twin(db_session, profile, reason="second pass, no new evidence")

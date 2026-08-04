@@ -1,4 +1,4 @@
-# Career Twin Scoring — Formula `twin-v1`
+# Career Twin Scoring — Formula `twin-v2`
 
 Implemented in `backend/app/career_twin/scoring.py`. Deterministic, no LLM
 call, versioned via `formula_version` on every `CareerTwinSnapshot`.
@@ -46,21 +46,95 @@ counted toward both `resume_readiness` and `technical_readiness` in Phase 1.
 ## Per-component formula
 
 Given evidence items `e_1..e_n` for a component, each with
-`normalized_score ∈ [0,1]`, `weight ∈ [0,1]`, `confidence ∈ [0,1]`:
+`normalized_score ∈ [0,1]`, `weight ∈ [0,1]`, `confidence ∈ [0,1]`,
+`source_object_type` (e.g. `resume`, `interview_answer`,
+`question_response`):
 
 ```
-weighted_score = Σ(normalized_score_i * weight_i) / Σ(weight_i)
-raw_confidence = Σ(confidence_i * weight_i) / Σ(weight_i)
-volume_factor  = min(1, evidence_count / SATURATION[component])
-final_confidence = raw_confidence * volume_factor
+raw_weighted_score = Σ(normalized_score_i * weight_i) / Σ(weight_i)
+raw_confidence      = Σ(confidence_i * weight_i) / Σ(weight_i)
+volume_factor       = min(1, evidence_count / SATURATION[component])
 ```
 
 `SATURATION` (evidence count at which volume_factor reaches 1.0) is 3 for
 resume/communication/assessment/role-alignment, 4 for technical, 2 for
-portfolio — chosen so no component reports high confidence off a single data
-point. With zero evidence, the component is stored with
+portfolio. With zero evidence, the component is stored with
 `status=insufficient_evidence`, `score=null`, `confidence=null`, and a plain
 -language explanation — never a fabricated number.
+
+## Small-sample safeguard (`twin-v2`)
+
+A single session of evidence — for example, two interview answers, both
+scoring 90%+ — must never be presented as a confidently established skill
+level. Formula `twin-v1` already discounted confidence by evidence volume,
+but nothing stopped the *score itself* from reporting the raw 90%+ value, and
+nothing distinguished "five answers in one interview" from "five
+observations across independent sources." `twin-v2` adds three deterministic
+levers, all versioned in this same formula:
+
+**1. Evidence-diversity weighting.** `evidence_diversity` is the count of
+distinct `source_object_type` values behind a component's evidence.
+
+```
+distinct_sources  = |{source_object_type_i}|
+diversity_factor  = min(1, distinct_sources / MIN_SOURCE_DIVERSITY_TARGET)   # target = 2
+```
+
+Five items from one interview session (`distinct_sources = 1`) score the
+same `diversity_factor` as one item from that session — volume alone cannot
+substitute for independent corroboration.
+
+**2. Prior-weighted (shrinkage) scoring.** The *stored* `score` — not just
+confidence — is pulled toward a neutral 0.5 prior in proportion to how
+little the evidence can be trusted:
+
+```
+trust_factor = volume_factor * diversity_factor
+score        = raw_weighted_score * trust_factor + NEUTRAL_SCORE_PRIOR * (1 - trust_factor)   # prior = 0.5
+```
+
+A single perfect 0.95 answer (`volume_factor≈0.25` for a technical
+component saturating at 4, `diversity_factor=0.5` for one source) reports
+around **0.55**, not 0.95. This is a standard Bayesian-shrinkage /
+empirical-Bayes correction: with little evidence, regress toward a neutral
+prior rather than trusting the sample at face value.
+
+**3. Hard confidence cap + explicit low-sample flag.**
+
+```
+confidence = raw_confidence * volume_factor * diversity_factor
+if disagreement > HIGH_DISAGREEMENT_THRESHOLD (0.25):     # population stdev of normalized_score
+    confidence *= (1 - disagreement)                       # conflicting evidence discount
+is_low_sample = evidence_count < MIN_EVIDENCE_FOR_STABLE_CONFIDENCE (3)
+                or distinct_sources < MIN_SOURCE_DIVERSITY_TARGET (2)
+if is_low_sample:
+    confidence = min(confidence, LOW_SAMPLE_CONFIDENCE_CAP)   # 0.50
+```
+
+When `is_low_sample` is true, `ReadinessComponent.is_low_sample=True` and
+`explanation` (and the API's `low_sample_notice` field) carries the exact
+text:
+
+> "Strong performance in this session, but more evidence is required to
+> establish long-term proficiency."
+
+`evidence_diversity` and `is_low_sample` are stored columns on
+`ReadinessComponent` (migration `7ba5f89c3126`), not derived-on-read, so the
+Trust Center and audit trail can show exactly why a score was shrunk.
+
+**What "clears" low-sample status**: evidence at or above the volume
+threshold (3+ items) *and* spread across 2+ distinct source types — e.g. an
+interview answer, a resume mention, and an assessment question response
+about the same skill. That evidence combination reaches `trust_factor≈1`
+(score reported near its raw value) and is allowed to exceed the 0.50
+confidence cap.
+
+Tests: `backend/tests/test_career_twin_small_sample_safeguard.py` — one
+strong answer (shrunk, low-sample), several strong answers from one source
+(still low-sample despite volume), conflicting evidence (confidence further
+discounted, notice present), repeated evidence from one source (diversity
+stays capped), and evidence from multiple independent sources (clears
+low-sample, score/confidence approach raw values).
 
 ## Overall score
 
@@ -86,7 +160,7 @@ Every `recompute_twin()` call:
    `ReadinessComponent` row per component, each carrying its own
    `evidence_ids` list.
 3. Writes one `DecisionTrace` (`task_type=career_twin_update`,
-   `route=deterministic_rule`, `model_versions={"scoring_formula": "twin-v1"}`)
+   `route=deterministic_rule`, `model_versions={"scoring_formula": "twin-v2"}`)
    referencing the same evidence IDs.
 4. Writes one `AuditEvent` (`event_type=career_twin_updated`).
 

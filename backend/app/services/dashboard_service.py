@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.career_twin.scoring import build_career_twin_snapshot_out
+from app.career_twin.scoring import SCORING_RULE_VERSION, build_career_twin_snapshot_out
 from app.models.audit import AuditEvent
 from app.models.career_twin import CareerTwinSnapshot
 from app.models.skill import Skill, SkillEvidence
@@ -121,7 +121,7 @@ def build_dashboard(db: Session, student_profile: StudentProfile) -> DashboardOu
 
     scored_count = 0
     total_evidence = 0
-    formula_version = "twin-v1"
+    formula_version = SCORING_RULE_VERSION
     if latest_snapshot:
         scored_count = sum(1 for c in latest_snapshot.components if c.status == "scored")
         total_evidence = latest_snapshot.evidence_count

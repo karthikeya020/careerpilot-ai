@@ -21,6 +21,15 @@ class ReadinessComponentOut(BaseModel):
     # on every read from already-stored snapshot data.
     trend: float | None = None
     uncertainty: float | None = None
+    # twin-v2 small-sample safeguard fields -- see
+    # docs/implementation/CAREER_TWIN_SCORING.md "Small-sample safeguard".
+    # evidence_diversity is the count of distinct source_object_type values
+    # behind this component; is_low_sample/low_sample_notice surface when
+    # score/confidence were shrunk/capped because the evidence is too
+    # sparse or too narrowly sourced to support a confident estimate.
+    evidence_diversity: int = 0
+    is_low_sample: bool = False
+    low_sample_notice: str | None = None
 
 
 class CareerTwinSnapshotOut(BaseModel):

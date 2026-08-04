@@ -2,6 +2,8 @@ import io
 
 from docx import Document
 
+from app.career_twin.scoring import SCORING_RULE_VERSION
+
 DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 JD_TEXT = """We are looking for a Backend Engineer.
@@ -93,7 +95,7 @@ def test_dashboard_reflects_full_happy_path(client) -> None:
     assert len(body["recent_evidence"]) > 0
     assert len(body["recent_twin_updates"]) >= 3
     assert len(body["recent_audit_events"]) > 0
-    assert body["system_trust"]["formula_version"] == "twin-v1"
+    assert body["system_trust"]["formula_version"] == SCORING_RULE_VERSION
 
     twin_response = client.get("/api/v1/career-twin", headers=headers)
     assert twin_response.status_code == 200

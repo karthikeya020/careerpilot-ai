@@ -19,6 +19,20 @@ _DISPATCH_TABLE: dict[str, list[str]] = {
     "mission_synthesis": ["graphrag", "career_coach", "resource_recommendation"],
     "career_coach_synthesis": ["career_coach"],
     "resource_recommendation": ["resource_recommendation"],
+    # Interview evaluation's *eligible* roster -- CARE's routing decision
+    # (see app/services/interview_service.py) picks which subset of these
+    # actually runs for a given answer, the same way root_cause_analysis
+    # lists three eligible agents but a given execution may only invoke one.
+    "interview_evaluation": [
+        "communication",
+        "hr",
+        "technical",
+        "resume_evidence",
+        "jd_alignment",
+        "critic",
+        "consensus",
+        "memory",
+    ],
 }
 
 

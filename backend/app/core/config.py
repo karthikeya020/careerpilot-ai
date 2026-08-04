@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     primary_llm_model: str = "claude-sonnet-4-5-20250929"
     secondary_llm_api_key: str = ""
 
+    speech_to_text_api_key: str = ""
+    speech_to_text_model: str = "whisper-1"
+    max_audio_upload_bytes: int = 15 * 1024 * 1024
+
     demo_student_email: str = "demo.student@careerpilot.ai"
     demo_student_password: str = "DemoPass!2026"
 
