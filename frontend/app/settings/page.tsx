@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { History, UserCog } from "lucide-react";
+import { History, ShieldCheck, UserCog } from "lucide-react";
+import { toast } from "sonner";
 import { Protected } from "@/components/layout/protected";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,8 +13,43 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuditEvents } from "@/hooks/use-audit";
 import { useStudentProfile } from "@/hooks/use-onboarding";
+import { useSetRecruiterVisibility } from "@/hooks/use-role-dashboards";
 import { useAuth } from "@/lib/auth-context";
+import { ApiError } from "@/lib/api-client";
 import { formatDateTime, titleCase } from "@/lib/utils";
+
+function RecruiterVisibilityCard() {
+  const [visible, setVisible] = useState(false);
+  const setRecruiterVisibility = useSetRecruiterVisibility();
+
+  const handleToggle = () => {
+    const next = !visible;
+    setRecruiterVisibility.mutate(next, {
+      onSuccess: () => {
+        setVisible(next);
+        toast.success(next ? "Recruiters can now see your evidence summary." : "Recruiter visibility turned off.");
+      },
+      onError: (err) => toast.error(err instanceof ApiError ? err.message : "Couldn't update recruiter visibility."),
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center gap-2">
+        <ShieldCheck className="h-4 w-4 text-brand" aria-hidden="true" />
+        <CardTitle>Recruiter visibility</CardTitle>
+        <CardDescription>
+          When on, authorized recruiters can see your evidence summary (readiness components, confidence). No automatic hiring recommendation is ever computed.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button variant={visible ? "destructive" : "outline"} size="sm" onClick={handleToggle} disabled={setRecruiterVisibility.isPending}>
+          {visible ? "Turn off recruiter visibility" : "Make my evidence visible to recruiters"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 function SettingsBody() {
   const { user } = useAuth();
@@ -86,6 +123,8 @@ function SettingsBody() {
           </CardContent>
         </Card>
       ) : null}
+
+      <RecruiterVisibilityCard />
 
       <Card>
         <CardHeader className="flex-row items-center gap-2">

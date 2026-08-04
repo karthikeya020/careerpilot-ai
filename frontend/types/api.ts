@@ -535,6 +535,89 @@ export interface CalibrationReportOut {
   preliminary: boolean;
 }
 
+export interface CohortSkillGapOut {
+  component_type: string;
+  average_score: number | null;
+  scored_student_count: number;
+}
+
+export interface StudentNeedingSupportOut {
+  student_profile_id: string;
+  full_name: string;
+  flagged_decision_count: number;
+}
+
+export interface FacultyDashboardOut {
+  total_students: number;
+  cohort_skill_gaps: CohortSkillGapOut[];
+  mission_completion_rate: number | null;
+  assessment_completion_rate: number | null;
+  average_readiness_trend: number | null;
+  students_needing_support: StudentNeedingSupportOut[];
+}
+
+export interface ReadinessBucketOut {
+  range_start: number;
+  range_end: number;
+  student_count: number;
+}
+
+export interface PlacementDashboardOut {
+  student_count_with_snapshot: number;
+  readiness_distribution: ReadinessBucketOut[];
+  role_alignment_average: number | null;
+  common_skill_gaps: CohortSkillGapOut[];
+  program_effectiveness_average_delta: number | null;
+  disclaimer: string;
+}
+
+export interface CandidateComponentOut {
+  component_type: string;
+  score: number | null;
+  confidence: number | null;
+  status: string;
+}
+
+export interface RecruiterCandidateOut {
+  student_profile_id: string;
+  full_name: string;
+  target_role: string | null;
+  overall_score: number | null;
+  overall_confidence: number | null;
+  components: CandidateComponentOut[];
+  requires_human_review: boolean;
+  consent_status: string;
+}
+
+export interface ServiceHealthOut {
+  database: boolean;
+  redis: boolean;
+  neo4j: boolean;
+}
+
+export interface CareExecutionStatsOut {
+  total_executions: number;
+  route_frequency: Record<string, number>;
+  average_confidence: number | null;
+  average_latency_ms: number | null;
+  average_cost_usd: number | null;
+  human_review_rate: number | null;
+}
+
+export interface RecentAuditEventOut {
+  id: string;
+  event_type: string;
+  created_at: string;
+}
+
+export interface AdminDashboardOut {
+  service_health: ServiceHealthOut;
+  users_by_role: Record<string, number>;
+  total_users: number;
+  care_execution_stats: CareExecutionStatsOut;
+  recent_audit_events: RecentAuditEventOut[];
+}
+
 export interface DashboardOut {
   student_name: string;
   onboarding_completed: boolean;

@@ -17,6 +17,7 @@ from app.api.research import router as research_router
 from app.api.resources import router as resources_router
 from app.api.responsible_ai import router as responsible_ai_router
 from app.api.resumes import router as resumes_router
+from app.api.role_dashboards import router as role_dashboards_router
 from app.api.skills import router as skills_router
 from app.api.students import router as students_router
 from app.api.trust_center import router as trust_center_router
@@ -62,6 +63,7 @@ app.include_router(interviews_router, prefix=settings.api_v1_prefix)
 app.include_router(experiments_router, prefix=settings.api_v1_prefix)
 app.include_router(responsible_ai_router, prefix=settings.api_v1_prefix)
 app.include_router(research_router, prefix=settings.api_v1_prefix)
+app.include_router(role_dashboards_router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/")
