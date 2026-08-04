@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FileText, Sparkles, Target, UserCog } from "lucide-react";
+import { FileText, Presentation, Sparkles, Target, UserCog } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -8,6 +8,7 @@ const ACTIONS = [
   { href: "/job-description", label: "Add job description", icon: Target },
   { href: "/career-twin", label: "View Career Twin", icon: Sparkles },
   { href: "/settings", label: "Edit profile", icon: UserCog },
+  { href: "/competition", label: "Competition Mode", icon: Presentation },
 ];
 
 export function QuickActions() {
