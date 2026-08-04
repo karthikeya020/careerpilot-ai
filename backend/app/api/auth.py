@@ -5,6 +5,7 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.core.errors import UnauthorizedError
+from app.core.rate_limit import login_rate_limiter, register_rate_limiter
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 from app.schemas.user import UserOut
 from app.services import auth_service
@@ -45,13 +46,23 @@ def _token_response(db: Session, response: Response, user) -> TokenResponse:
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def register(payload: RegisterRequest, response: Response, db: Session = Depends(get_db)) -> TokenResponse:
+def register(
+    payload: RegisterRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+    _rate_limit: None = Depends(register_rate_limiter),
+) -> TokenResponse:
     user = auth_service.register_student(db, payload.email, payload.password, payload.full_name)
     return _token_response(db, response, user)
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)) -> TokenResponse:
+def login(
+    payload: LoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+    _rate_limit: None = Depends(login_rate_limiter),
+) -> TokenResponse:
     user = auth_service.authenticate(db, payload.email, payload.password)
     return _token_response(db, response, user)
 

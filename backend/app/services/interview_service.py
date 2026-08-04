@@ -31,6 +31,7 @@ import random
 import re
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -47,6 +48,7 @@ from app.agents.technical_agent import TechnicalAgent, TechnicalInterviewInput
 from app.care_engine.engine import AgentRunRecord, StepOutcome, run_care_task
 from app.care_engine.schemas import RoutingFactors
 from app.career_twin.scoring import recompute_twin
+from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError, UnprocessableError
 from app.models.assessment import Concept
 from app.models.base import utcnow
@@ -74,6 +76,7 @@ from app.services.speech_to_text import get_speech_to_text_provider
 
 _TASK_TYPE = "interview_evaluation"
 _MIN_WORDS_FOR_CONFIDENT_ANSWER = 12
+_ALLOWED_AUDIO_MIME_PREFIXES = ("audio/", "video/webm")  # some browsers report webm audio as a video/webm container
 
 # (prompt, expected_keywords, concept_slug|None, concept_domain|None)
 _TECHNICAL_BANK = [
@@ -254,6 +257,19 @@ def _record(agent_name: str, prompt_version: str, input_payload: dict, output: A
     )
 
 
+def _validate_audio_upload(audio_bytes: bytes, audio_filename: str | None, audio_mime_type: str | None) -> None:
+    settings = get_settings()
+    if len(audio_bytes) > settings.max_audio_upload_bytes:
+        raise UnprocessableError(
+            f"Audio recording exceeds the {settings.max_audio_upload_bytes // (1024 * 1024)}MB upload limit."
+        )
+    suffix = Path(audio_filename or "").suffix.lower()
+    if suffix and suffix not in storage.AUDIO_SUFFIXES:
+        raise UnprocessableError("Unsupported audio file type.")
+    if audio_mime_type and not audio_mime_type.startswith(_ALLOWED_AUDIO_MIME_PREFIXES):
+        raise UnprocessableError("Unsupported audio content type.")
+
+
 def submit_answer(
     db: Session,
     student_profile: StudentProfile,
@@ -272,6 +288,7 @@ def submit_answer(
     transcript_source = TRANSCRIPT_SOURCE_UNAVAILABLE
 
     if audio_bytes:
+        _validate_audio_upload(audio_bytes, audio_filename, audio_mime_type)
         audio_storage_path = storage.save_audio(student_profile.id, audio_filename or "answer.webm", audio_bytes)
         result = get_speech_to_text_provider().transcribe(audio_bytes, audio_mime_type or "audio/webm")
         transcript = result.transcript

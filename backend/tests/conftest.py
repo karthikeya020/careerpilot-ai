@@ -44,6 +44,7 @@ def db_session(migrated_engine):
 @pytest.fixture()
 def client(migrated_engine):
     from app.core.db import get_db
+    from app.core.rate_limit import login_rate_limiter, register_rate_limiter
     from app.main import app
 
     session_factory = sessionmaker(bind=migrated_engine, autoflush=False, autocommit=False)
@@ -56,6 +57,12 @@ def client(migrated_engine):
             session.close()
 
     app.dependency_overrides[get_db] = _override_get_db
+    # Real IP-keyed rate limits would throttle the suite itself (it
+    # registers/logs in far more than 10 times/minute from one TestClient
+    # "IP") -- disabled here the same way get_db is overridden, not by
+    # weakening the limiter itself.
+    app.dependency_overrides[login_rate_limiter] = lambda: None
+    app.dependency_overrides[register_rate_limiter] = lambda: None
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

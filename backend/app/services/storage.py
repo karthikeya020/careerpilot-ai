@@ -13,11 +13,11 @@ from app.core.config import get_settings
 settings = get_settings()
 
 
-_DOCUMENT_SUFFIXES = (".pdf", ".docx", ".txt")
-_AUDIO_SUFFIXES = (".webm", ".ogg", ".wav", ".mp3", ".m4a", ".mp4")
+DOCUMENT_SUFFIXES = (".pdf", ".docx", ".txt")
+AUDIO_SUFFIXES = (".webm", ".ogg", ".wav", ".mp3", ".m4a", ".mp4")
 
 
-def _safe_suffix(original_filename: str, allowed: tuple[str, ...] = _DOCUMENT_SUFFIXES) -> str:
+def _safe_suffix(original_filename: str, allowed: tuple[str, ...] = DOCUMENT_SUFFIXES) -> str:
     suffix = Path(original_filename).suffix.lower()
     return suffix if suffix in allowed else ""
 
@@ -34,7 +34,7 @@ def save(student_profile_id: uuid.UUID, original_filename: str, content: bytes) 
 def save_audio(student_profile_id: uuid.UUID, original_filename: str, content: bytes) -> str:
     student_dir = settings.upload_dir / str(student_profile_id) / "interview_audio"
     student_dir.mkdir(parents=True, exist_ok=True)
-    safe_name = f"{uuid.uuid4().hex}{_safe_suffix(original_filename, _AUDIO_SUFFIXES)}"
+    safe_name = f"{uuid.uuid4().hex}{_safe_suffix(original_filename, AUDIO_SUFFIXES)}"
     destination = student_dir / safe_name
     destination.write_bytes(content)
     return str(destination.relative_to(settings.upload_dir))
