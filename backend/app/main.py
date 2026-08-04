@@ -14,6 +14,7 @@ from app.api.job_descriptions import router as job_descriptions_router
 from app.api.missions import router as missions_router
 from app.api.onboarding import router as onboarding_router
 from app.api.resources import router as resources_router
+from app.api.responsible_ai import router as responsible_ai_router
 from app.api.resumes import router as resumes_router
 from app.api.skills import router as skills_router
 from app.api.students import router as students_router
@@ -58,6 +59,7 @@ app.include_router(resources_router, prefix=settings.api_v1_prefix)
 app.include_router(trust_center_router, prefix=settings.api_v1_prefix)
 app.include_router(interviews_router, prefix=settings.api_v1_prefix)
 app.include_router(experiments_router, prefix=settings.api_v1_prefix)
+app.include_router(responsible_ai_router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/")

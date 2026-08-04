@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { FileText, FlaskConical, LayoutDashboard, ListChecks, Mic, ShieldCheck, Settings, Sparkles, Target } from "lucide-react";
+import { FileText, FlaskConical, LayoutDashboard, ListChecks, Mic, Scale, ShieldCheck, Settings, Sparkles, Target } from "lucide-react";
 
 export interface NavLink {
   href: string;
@@ -16,5 +16,6 @@ export const NAV_LINKS: NavLink[] = [
   { href: "/interview", label: "Interview Arena", icon: Mic },
   { href: "/experiment-lab", label: "Experiment Lab", icon: FlaskConical },
   { href: "/trust-center", label: "Trust Center", icon: ShieldCheck },
+  { href: "/responsible-ai", label: "Responsible AI", icon: Scale },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

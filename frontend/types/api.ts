@@ -471,6 +471,25 @@ export interface ExperimentScenarioOut {
   result: ExperimentResultOut | null;
 }
 
+export interface ResponsibleAIVersionsOut {
+  care_policy_version: string;
+  career_twin_formula_version: string;
+  simulation_engine_version: string;
+  agent_prompt_versions: Record<string, string>;
+}
+
+export interface ResponsibleAIOverviewOut {
+  evaluates: string[];
+  does_not_evaluate: string[];
+  versions: ResponsibleAIVersionsOut;
+  human_review: { pending_count: number };
+  evidence_provenance: Record<string, number>;
+  current_career_twin_confidence: number | null;
+  consent: Record<string, unknown>;
+  stored_interview_audio_count: number;
+  non_claims: string[];
+}
+
 export interface DashboardOut {
   student_name: string;
   onboarding_completed: boolean;
