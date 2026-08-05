@@ -11,7 +11,13 @@ COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini ./
 
-RUN pip install --upgrade pip && pip install .
+# setuptools pinned >=78.1.1: the python:3.12-slim base image ships an older
+# setuptools with several known CVEs (path traversal / RCE in its package-
+# index download path -- CVE-2024-6345, CVE-2025-47273); none are reachable
+# through this app's own request-handling code, but there is no reason to
+# ship a vulnerable version when upgrading costs nothing. See pip-audit
+# findings in docs/security/SECURITY_REVIEW.md.
+RUN pip install --upgrade pip "setuptools>=78.1.1" && pip install .
 
 EXPOSE 8000
 

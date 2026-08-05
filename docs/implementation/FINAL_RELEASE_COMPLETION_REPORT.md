@@ -1,6 +1,48 @@
 # Final Release Completion Report
 
-## Addendum: independent adversarial audit pass (2026-08-05)
+## Addendum 2: final technical closure pass (2026-08-05)
+
+Closes the two remaining documented verification gaps from Addendum 1
+below: real accessibility testing (was manual spot-checks only) and a
+real dependency vulnerability scan (was not run at all). Full detail in
+`docs/implementation/CURRENT_CHECKPOINT.md` "Final technical closure
+pass." Summary:
+
+1. **Accessibility — real `axe-core` 4.12.1 audit**, live against the
+   Docker stack, 23 of 24 routes. Found and fixed: missing accessible
+   names on every `Progress` bar (~15 call sites), insufficient contrast
+   on the destructive button variant (~2.8:1, fixed to pass AA), a
+   systemic heading-order gap (`CardTitle` always rendered `<h3>` with no
+   `<h2>` above it on 13 pages), missing page headings on 9 error/
+   permission-denied states, and missing landmark regions on Competition
+   Mode. One flagged contrast issue on the landing page was investigated
+   and confirmed a false positive (verified via `getComputedStyle`: real
+   contrast ~17:1) — documented as such rather than patched. Genuinely
+   not done: screen-reader testing, projector testing, and mobile/tablet
+   breakpoint verification (this environment's browser-resize tooling did
+   not affect the actual CSS viewport, confirmed by measurement).
+2. **Dependency scan — real `pip-audit` + `npm audit` run.** Backend: one
+   vulnerable package (`setuptools` 65.5.0, a build-tool transitive
+   dependency with 4 CVEs, none reachable through this app's own request
+   handling) — fixed by pinning `setuptools>=78.1.1` in the Dockerfile,
+   verified inside the rebuilt image. Frontend: 0 vulnerabilities across
+   621 dependencies, no fix needed.
+3. **Full regression re-run after both**: 165 backend tests / ruff / mypy
+   unchanged and clean; 68 frontend tests / tsc / eslint / `next build`
+   (24 routes) unchanged and clean; full clean Docker rebuild (`down -v
+   && build --no-cache && up -d`) — 5/5 healthy, single migration head,
+   demo reset and Competition Mode/Research Lab/Interview Replay/
+   Experiment Lab all re-verified live against the rebuilt production
+   images.
+4. **Release freeze**: working tree clean, no secrets tracked, 9 real
+   screenshots captured and committed under `docs/presentation/
+   screenshots/` (fictional demo account only), final commit and
+   `careerpilot-competition-final` tag created.
+
+Nothing in Addendum 1 or the original report below was found inaccurate;
+both are left unchanged as the historical record.
+
+## Addendum 1: independent adversarial audit pass (2026-08-05)
 
 This report's §6 "Recommended next steps" listed two pre-demo housekeeping
 items and one research-rigor item. This pass did all three, plus found and

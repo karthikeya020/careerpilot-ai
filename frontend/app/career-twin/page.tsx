@@ -44,7 +44,7 @@ function CareerTwinBody() {
         />
       );
     }
-    return <ErrorState message={error.message} onRetry={() => refetch()} />;
+    return <ErrorState message={error.message} onRetry={() => refetch()} titleAs="h1" />;
   }
 
   if (!snapshot) return null;

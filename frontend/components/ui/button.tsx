@@ -12,7 +12,13 @@ const buttonVariants = cva(
         secondary: "bg-surface-muted text-foreground hover:bg-border/60 border border-border",
         ghost: "hover:bg-surface-muted text-foreground",
         outline: "border border-border bg-transparent hover:bg-surface-muted text-foreground",
-        destructive: "bg-danger text-white hover:opacity-90",
+        // Fixed red-600 rather than the shared --danger token: --danger is
+        // tuned to be readable as *text* on dark surfaces (dark theme uses
+        // a light red, #f87171) but that same light red under white button
+        // text falls to ~2.8:1 contrast, well under WCAG AA's 4.5:1. A
+        // fixed, theme-invariant background keeps this button legible in
+        // both themes without touching --danger's other (correct) uses.
+        destructive: "bg-red-600 text-white hover:opacity-90",
         link: "text-brand underline-offset-4 hover:underline p-0 h-auto",
       },
       size: {

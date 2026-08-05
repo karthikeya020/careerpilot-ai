@@ -37,7 +37,7 @@ function RecruiterVisibilityCard() {
     <Card>
       <CardHeader className="flex-row items-center gap-2">
         <ShieldCheck className="h-4 w-4 text-brand" aria-hidden="true" />
-        <CardTitle>Recruiter visibility</CardTitle>
+        <CardTitle as="h2">Recruiter visibility</CardTitle>
         <CardDescription>
           When on, authorized recruiters can see your evidence summary (readiness components, confidence). No automatic hiring recommendation is ever computed.
         </CardDescription>
@@ -66,7 +66,7 @@ function SettingsBody() {
       <Card>
         <CardHeader className="flex-row items-center gap-2">
           <UserCog className="h-4 w-4 text-brand" aria-hidden="true" />
-          <CardTitle>Account</CardTitle>
+          <CardTitle as="h2">Account</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex justify-between">
@@ -97,7 +97,7 @@ function SettingsBody() {
       ) : profile ? (
         <Card>
           <CardHeader>
-            <CardTitle>Career profile</CardTitle>
+            <CardTitle as="h2">Career profile</CardTitle>
             <CardDescription>Update your target role or goal by redoing onboarding.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
@@ -129,7 +129,7 @@ function SettingsBody() {
       <Card>
         <CardHeader className="flex-row items-center gap-2">
           <History className="h-4 w-4 text-brand" aria-hidden="true" />
-          <CardTitle>Audit trail</CardTitle>
+          <CardTitle as="h2">Audit trail</CardTitle>
           <CardDescription>Every change to your Career Twin is logged.</CardDescription>
         </CardHeader>
         <CardContent>

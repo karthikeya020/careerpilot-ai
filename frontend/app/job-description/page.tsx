@@ -76,7 +76,7 @@ function JobDescriptionBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Add a job description</CardTitle>
+          <CardTitle as="h2">Add a job description</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
@@ -137,7 +137,7 @@ function JobDescriptionBody() {
           {selected ? (
             <Card>
               <CardHeader>
-                <CardTitle>{selected.title}</CardTitle>
+                <CardTitle as="h2">{selected.title}</CardTitle>
                 <CardDescription>{selected.company ?? "No company specified"}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -150,7 +150,7 @@ function JobDescriptionBody() {
                         <span className="text-muted">Coverage</span>
                         <span className="font-medium text-foreground">{formatPercent(match.coverage)}</span>
                       </div>
-                      <Progress value={(match.coverage ?? 0) * 100} />
+                      <Progress value={(match.coverage ?? 0) * 100} aria-label={`Coverage: ${formatPercent(match.coverage)}`} />
                     </div>
                     <p className="text-xs text-muted">{match.explanation}</p>
                     <div className="grid gap-3 sm:grid-cols-3">

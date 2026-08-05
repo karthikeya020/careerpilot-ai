@@ -61,7 +61,7 @@ function ReplayItem({ item, index }: { item: InterviewReplayItemOut; index: numb
           <Badge variant="muted">Question {index + 1}</Badge>
           <Badge variant="default">{item.question.mode.replaceAll("_", " ")}</Badge>
         </div>
-        <CardTitle className="text-base font-medium">{item.question.prompt}</CardTitle>
+        <CardTitle as="h2" className="text-base font-medium">{item.question.prompt}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {audioUrl && (
@@ -101,7 +101,7 @@ function ReplayItem({ item, index }: { item: InterviewReplayItemOut; index: numb
                     <span className="capitalize">{dim.replaceAll("_", " ")}</span>
                     <span>{(score * 100).toFixed(0)}%</span>
                   </div>
-                  <Progress value={score * 100} />
+                  <Progress value={score * 100} aria-label={`${dim.replaceAll("_", " ")}: ${(score * 100).toFixed(0)}%`} />
                 </div>
               ))}
             </div>
@@ -163,7 +163,7 @@ function ReplayBody() {
 
   if (isLoading) return <Skeleton className="h-96" />;
   if (isError || !data) {
-    return <ErrorState message={error instanceof Error ? error.message : "Couldn't load this interview replay."} onRetry={() => refetch()} />;
+    return <ErrorState message={error instanceof Error ? error.message : "Couldn't load this interview replay."} onRetry={() => refetch()} titleAs="h1" />;
   }
   if (data.items.length === 0) {
     return <EmptyState title="No answered questions in this interview yet" />;

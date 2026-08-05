@@ -192,7 +192,7 @@ function AssessmentBody() {
           {domains.map((domain) => (
             <Card key={domain.id}>
               <CardHeader>
-                <CardTitle>{domain.name}</CardTitle>
+                <CardTitle as="h2">{domain.name}</CardTitle>
                 <CardDescription>{domain.description}</CardDescription>
               </CardHeader>
               <CardContent>

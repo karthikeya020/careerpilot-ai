@@ -110,7 +110,7 @@ function InterviewSetup() {
               <CardHeader className="flex-row items-center gap-2">
                 <Icon className="h-4 w-4 text-brand" aria-hidden="true" />
                 <div>
-                  <CardTitle>{info.label}</CardTitle>
+                  <CardTitle as="h2">{info.label}</CardTitle>
                   <CardDescription>{info.description}</CardDescription>
                 </div>
               </CardHeader>

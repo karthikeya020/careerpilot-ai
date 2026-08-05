@@ -181,7 +181,7 @@ function TrustCenterBody() {
         <Card>
           <CardHeader className="flex-row items-center gap-2">
             <GitBranch className="h-4 w-4 text-brand" aria-hidden="true" />
-            <CardTitle>Recent decisions</CardTitle>
+            <CardTitle as="h2">Recent decisions</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -210,7 +210,7 @@ function TrustCenterBody() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Decision trace</CardTitle>
+            <CardTitle as="h2">Decision trace</CardTitle>
             <CardDescription>Route, agents, evidence, and confidence for the selected decision.</CardDescription>
           </CardHeader>
           <CardContent>

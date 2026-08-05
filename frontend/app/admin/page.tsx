@@ -34,6 +34,7 @@ function AdminBody() {
         message={isPermissionDenied ? "This dashboard is only available to administrator accounts." : error instanceof Error ? error.message : "Couldn't load the admin dashboard."}
         onRetry={isPermissionDenied ? undefined : () => refetch()}
         isPermissionDenied={isPermissionDenied}
+        titleAs="h1"
       />
     );
   }
@@ -56,7 +57,7 @@ function AdminBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Users by role ({data.total_users} total)</CardTitle>
+          <CardTitle as="h2">Users by role ({data.total_users} total)</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           {Object.entries(data.users_by_role).map(([role, count]) => (
@@ -69,7 +70,7 @@ function AdminBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>CARE execution analytics</CardTitle>
+          <CardTitle as="h2">CARE execution analytics</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-2 gap-4 text-center sm:grid-cols-4">
@@ -104,7 +105,7 @@ function AdminBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent audit events (7 days)</CardTitle>
+          <CardTitle as="h2">Recent audit events (7 days)</CardTitle>
         </CardHeader>
         <CardContent>
           {data.recent_audit_events.length === 0 ? (

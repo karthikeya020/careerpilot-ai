@@ -74,7 +74,7 @@ function ResponsibleAIBody() {
 
   if (isLoading) return <Skeleton className="h-96" />;
   if (isError || !overview) {
-    return <ErrorState message={error instanceof Error ? error.message : "Couldn't load the Responsible AI Center."} onRetry={() => refetch()} />;
+    return <ErrorState message={error instanceof Error ? error.message : "Couldn't load the Responsible AI Center."} onRetry={() => refetch()} titleAs="h1" />;
   }
 
   return (
@@ -91,7 +91,7 @@ function ResponsibleAIBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>What this system does and does not evaluate</CardTitle>
+          <CardTitle as="h2">What this system does and does not evaluate</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -123,7 +123,7 @@ function ResponsibleAIBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Your evidence and confidence status</CardTitle>
+          <CardTitle as="h2">Your evidence and confidence status</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-2">
@@ -152,7 +152,7 @@ function ResponsibleAIBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Model, policy, and formula versions</CardTitle>
+          <CardTitle as="h2">Model, policy, and formula versions</CardTitle>
           <CardDescription>Every AI-adjacent output is traceable to an exact versioned formula or prompt.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2 text-xs">
@@ -169,7 +169,7 @@ function ResponsibleAIBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Your data controls</CardTitle>
+          <CardTitle as="h2">Your data controls</CardTitle>
           <CardDescription>Export, withdraw audio consent, or permanently delete your account.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

@@ -92,3 +92,27 @@ Fixed with `ON DELETE SET NULL` on all seven (migration `074b58839c25`),
 live-verified with three consecutive backend container restarts against
 real Postgres, each recovering in ~10 seconds. See
 `docs/implementation/CURRENT_CHECKPOINT.md` for the full writeup.
+
+## Dependency vulnerability scan (2026-08-05, final technical closure)
+
+Previously marked "not run in this environment" — run for real this pass.
+
+**Backend** (`pip-audit` 2.10.1 against the actual `backend/.venv`):
+
+| Package | Installed | Severity | CVEs | Fixed version | Prod or dev | Remediation |
+|---|---|---|---|---|---|---|
+| `setuptools` | 65.5.0 | Medium (path traversal / RCE in the package-index download path; not reachable through this app's own request-handling code — `setuptools` is a build/packaging tool, never imported by `app/`) | CVE-2022-40897, CVE-2024-6345, CVE-2025-47273, CVE-2026-59890 | 83.0.0 | Build tooling (transitive, ships with the Python base image — not declared in `pyproject.toml`) | **Fixed**: upgraded local venv to 83.0.0; `backend/Dockerfile`'s install step now pins `setuptools>=78.1.1` so the built image never ships the vulnerable version — verified inside the rebuilt image (`python -c "import setuptools; print(setuptools.__version__)"` → `83.0.0`) |
+
+No other package in the backend dependency tree had a known vulnerability.
+Re-run: `pip-audit` (from `backend/.venv`) → "No known vulnerabilities
+found" after the fix.
+
+**Frontend** (`npm audit` against `frontend/package-lock.json`, 621 total
+dependencies — 86 production, 498 dev, 114 optional, 10 peer): **0
+vulnerabilities** at any severity. No remediation needed.
+
+**Remaining accepted risk**: this was a point-in-time scan against
+whatever `PyPI`/`npm` advisory databases reported on 2026-08-05; it is not
+a continuously-monitored dependency feed (e.g., Dependabot/Renovate). A
+future pass should wire one of those into CI so new advisories are caught
+automatically rather than only at manual-audit checkpoints like this one.

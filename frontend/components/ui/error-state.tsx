@@ -10,9 +10,15 @@ interface ErrorStateProps {
    * non-alarming "access restricted" state instead of a red error with a
    * "Try again" button that would just repeat the same denial forever. */
   isPermissionDenied?: boolean;
+  /** Set to "h1" when this component is the entire page's content (an early
+   * return with no other heading rendered) so the page still has exactly
+   * one h1 for screen-reader heading navigation. Leave as the default "p"
+   * when ErrorState is nested inside a page that already renders its own
+   * h1 elsewhere -- promoting it there would create a second, competing h1. */
+  titleAs?: "p" | "h1";
 }
 
-export function ErrorState({ title, message, onRetry, isPermissionDenied = false }: ErrorStateProps) {
+export function ErrorState({ title, message, onRetry, isPermissionDenied = false, titleAs: Title = "p" }: ErrorStateProps) {
   const resolvedTitle = title ?? (isPermissionDenied ? "Access restricted" : "Something went wrong");
   return (
     <div
@@ -33,7 +39,7 @@ export function ErrorState({ title, message, onRetry, isPermissionDenied = false
         {isPermissionDenied ? <ShieldOff className="h-5 w-5" aria-hidden="true" /> : <AlertTriangle className="h-5 w-5" aria-hidden="true" />}
       </div>
       <div className="space-y-1">
-        <p className="text-sm font-medium text-foreground">{resolvedTitle}</p>
+        <Title className="text-sm font-medium text-foreground">{resolvedTitle}</Title>
         <p className="text-xs text-muted max-w-sm">{message}</p>
       </div>
       {isPermissionDenied ? (

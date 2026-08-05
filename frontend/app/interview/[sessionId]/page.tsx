@@ -60,7 +60,7 @@ function EvaluationPanel({ evaluation }: { evaluation: InterviewEvaluationOut })
               <span className="capitalize">{dim.replaceAll("_", " ")}</span>
               <span>{(score * 100).toFixed(0)}%</span>
             </div>
-            <Progress value={score * 100} />
+            <Progress value={score * 100} aria-label={`${dim.replaceAll("_", " ")}: ${(score * 100).toFixed(0)}%`} />
           </div>
         ))}
       </div>
@@ -219,7 +219,7 @@ function InterviewSessionBody() {
 
   if (isLoading && !progress) return <Skeleton className="h-64" />;
   if (isError && !progress) {
-    return <ErrorState message={error instanceof Error ? error.message : "Couldn't load this interview."} onRetry={() => refetch()} />;
+    return <ErrorState message={error instanceof Error ? error.message : "Couldn't load this interview."} onRetry={() => refetch()} titleAs="h1" />;
   }
   if (!progress) return null;
 

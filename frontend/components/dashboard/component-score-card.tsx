@@ -18,7 +18,11 @@ export function ComponentScoreCard({ component }: { component: ReadinessComponen
           <Badge variant="muted">Insufficient evidence</Badge>
         )}
       </div>
-      <Progress value={isScored ? (component.score ?? 0) * 100 : 0} className="mb-2" />
+      <Progress
+        value={isScored ? (component.score ?? 0) * 100 : 0}
+        className="mb-2"
+        aria-label={`${label} readiness: ${isScored ? formatPercent(component.score) : "insufficient evidence"}`}
+      />
       <div className="flex items-center justify-between text-xs text-muted">
         <span>{component.evidence_count} evidence item{component.evidence_count === 1 ? "" : "s"}</span>
         {isScored ? <span>Confidence {formatPercent(component.confidence)}</span> : null}

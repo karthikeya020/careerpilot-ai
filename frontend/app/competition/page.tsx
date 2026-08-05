@@ -513,10 +513,10 @@ function CompetitionShell() {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
-      <div className="flex items-center gap-3 border-b border-border px-6 py-3">
+      <header className="flex items-center gap-3 border-b border-border px-6 py-3">
         <Badge variant="default">{STEP_LABELS[step]}</Badge>
         <div className="flex-1">
-          <Progress value={progressPercent} />
+          <Progress value={progressPercent} aria-label={`Presentation progress: step ${stepIndex + 1} of ${STEPS.length}`} />
         </div>
         <span className="text-xs text-muted">
           {stepIndex + 1} / {STEPS.length}
@@ -530,26 +530,28 @@ function CompetitionShell() {
         <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")} aria-label="Exit competition mode">
           <X className="h-4 w-4" />
         </Button>
-      </div>
+      </header>
 
-      <div className="flex-1 overflow-y-auto py-10">
+      <main className="flex-1 overflow-y-auto py-10">
         <StepRenderer step={step} technicalView={technicalView} />
-      </div>
+      </main>
 
-      <div className="flex items-center justify-center gap-3 border-t border-border px-6 py-4">
-        <Button variant="outline" onClick={prev} disabled={stepIndex === 0}>
-          ← Previous
-        </Button>
-        <Button variant="ghost" onClick={reset}>
-          Reset
-        </Button>
-        <Button onClick={next} disabled={stepIndex === STEPS.length - 1}>
-          Next <Icon className="ml-1.5 h-4 w-4" aria-hidden="true" />
-        </Button>
-      </div>
-      <p className="pb-2 text-center text-[10px] text-muted">
-        Keyboard: → / Space next · ← previous · R reset · F fullscreen · T technical view · Esc exit
-      </p>
+      <footer className="flex flex-col items-center gap-1 border-t border-border px-6 py-4">
+        <div className="flex items-center justify-center gap-3">
+          <Button variant="outline" onClick={prev} disabled={stepIndex === 0}>
+            ← Previous
+          </Button>
+          <Button variant="ghost" onClick={reset}>
+            Reset
+          </Button>
+          <Button onClick={next} disabled={stepIndex === STEPS.length - 1}>
+            Next <Icon className="ml-1.5 h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
+        <p className="pb-2 pt-2 text-center text-[10px] text-muted">
+          Keyboard: → / Space next · ← previous · R reset · F fullscreen · T technical view · Esc exit
+        </p>
+      </footer>
     </div>
   );
 }

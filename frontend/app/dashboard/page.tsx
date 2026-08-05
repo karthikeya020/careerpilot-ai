@@ -32,6 +32,7 @@ function DashboardBody() {
       <ErrorState
         message={error instanceof Error ? error.message : "Couldn't load your dashboard."}
         onRetry={() => refetch()}
+        titleAs="h1"
       />
     );
   }

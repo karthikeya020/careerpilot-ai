@@ -23,6 +23,7 @@ function RecruiterBody() {
         message={isPermissionDenied ? "This dashboard is only available to recruiter and administrator accounts." : error instanceof Error ? error.message : "Couldn't load candidates."}
         onRetry={isPermissionDenied ? undefined : () => refetch()}
         isPermissionDenied={isPermissionDenied}
+        titleAs="h1"
       />
     );
   }
@@ -46,7 +47,7 @@ function RecruiterBody() {
           {candidates.map((candidate) => (
             <Card key={candidate.student_profile_id}>
               <CardHeader>
-                <CardTitle>{candidate.full_name}</CardTitle>
+                <CardTitle as="h2">{candidate.full_name}</CardTitle>
                 <p className="text-xs text-muted">{candidate.target_role ?? "No target role set"}</p>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -71,7 +72,10 @@ function RecruiterBody() {
                         <span className="capitalize">{c.component_type.replaceAll("_", " ")}</span>
                         <span>{c.status === "scored" ? formatPercent(c.score) : "insufficient evidence"}</span>
                       </div>
-                      <Progress value={(c.score ?? 0) * 100} />
+                      <Progress
+                        value={(c.score ?? 0) * 100}
+                        aria-label={`${c.component_type.replaceAll("_", " ")}: ${c.status === "scored" ? formatPercent(c.score) : "insufficient evidence"}`}
+                      />
                     </div>
                   ))}
                 </div>

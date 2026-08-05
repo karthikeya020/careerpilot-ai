@@ -93,7 +93,7 @@ function ResumeBody() {
           <Card>
             <CardHeader className="flex-row items-center justify-between gap-2">
               <div>
-                <CardTitle>{resume.original_filename}</CardTitle>
+                <CardTitle as="h2">{resume.original_filename}</CardTitle>
                 <CardDescription>
                   Uploaded {formatDateTime(resume.uploaded_at)} · {(resume.file_size / 1024).toFixed(0)} KB
                 </CardDescription>
@@ -109,7 +109,7 @@ function ResumeBody() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Detected skills ({resume.resume_skills.length})</CardTitle>
+              <CardTitle as="h2">Detected skills ({resume.resume_skills.length})</CardTitle>
             </CardHeader>
             <CardContent>
               {resume.resume_skills.length === 0 ? (
@@ -133,7 +133,7 @@ function ResumeBody() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Sections ({resume.sections.length})</CardTitle>
+              <CardTitle as="h2">Sections ({resume.sections.length})</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {resume.sections.map((section) => (

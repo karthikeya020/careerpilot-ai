@@ -23,6 +23,7 @@ function FacultyBody() {
         message={isPermissionDenied ? "This dashboard is only available to faculty and administrator accounts." : error instanceof Error ? error.message : "Couldn't load the faculty dashboard."}
         onRetry={isPermissionDenied ? undefined : () => refetch()}
         isPermissionDenied={isPermissionDenied}
+        titleAs="h1"
       />
     );
   }
@@ -64,7 +65,7 @@ function FacultyBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Cohort skill gaps</CardTitle>
+          <CardTitle as="h2">Cohort skill gaps</CardTitle>
           <CardDescription>Average readiness component score across the cohort&apos;s most recent Career Twin snapshots.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -76,7 +77,10 @@ function FacultyBody() {
                   {gap.average_score !== null ? formatPercent(gap.average_score) : "insufficient data"} ({gap.scored_student_count} scored)
                 </span>
               </div>
-              <Progress value={(gap.average_score ?? 0) * 100} />
+              <Progress
+                value={(gap.average_score ?? 0) * 100}
+                aria-label={`${gap.component_type.replaceAll("_", " ")}: ${gap.average_score !== null ? formatPercent(gap.average_score) : "insufficient data"}`}
+              />
             </div>
           ))}
         </CardContent>
@@ -84,7 +88,7 @@ function FacultyBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Students requiring human support</CardTitle>
+          <CardTitle as="h2">Students requiring human support</CardTitle>
           <CardDescription>Flagged by CARE for persistently low-confidence decisions -- a real signal for outreach, not a ranking.</CardDescription>
         </CardHeader>
         <CardContent>

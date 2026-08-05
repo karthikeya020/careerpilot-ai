@@ -1,5 +1,16 @@
 # Final Acceptance Matrix
 
+**Updated 2026-08-05 (final technical closure pass)**: rule 14
+(accessibility) and the dependency-scanning gap are now `PASS` — see
+"Constitution compliance" rule 14 below and the new final-closure rows.
+See `docs/implementation/CURRENT_CHECKPOINT.md` "Final technical closure
+pass" for full detail: axe-core found and fixed 5 classes of real issue
+(missing progressbar names, insufficient button contrast, heading-order
+skips, missing page headings on error states, missing landmarks on
+Competition Mode), plus one verified false positive documented rather
+than "fixed." `pip-audit`/`npm audit` found and fixed one backend
+build-tool CVE set; frontend had zero.
+
 **Updated 2026-08-05 (independent adversarial audit pass)**: the two
 `PARTIAL`/gap rows this matrix used to carry — ablation harness coverage
 and demo dataset completeness — are now `PASS`. See
@@ -41,7 +52,7 @@ otherwise anywhere in the repo or docs.
 | 11 | DB changes via migration | PASS | 7 migrations total, single head `957a79bda179`, verified via `alembic heads` |
 | 12 | Tests for business logic | PASS | 159 backend tests total (up from 133 at P1 checkpoint) covering scoring, RBAC, matching, dashboards |
 | 13 | Deterministic fallback for demo-critical features | PASS | `FakeChatProvider` default; relational GraphRAG fallback; live-tested this pass: stopped Neo4j + Redis mid-run, confirmed `/health/dependencies` reports `degraded` and the app stays functional, restarted both, confirmed recovery |
-| 14 | Loading/empty/error states, accessibility, mobile | PARTIAL | Empty states verified real (Competition Mode steps 9-11 showed honest "no data yet" for the demo account, not fabricated numbers); full WCAG audit and mobile-breakpoint sweep across all 24 routes not independently re-verified this pass beyond the premium-UI-pass screens |
+| 14 | Loading/empty/error states, accessibility, mobile | PARTIAL | Empty states verified real (Competition Mode steps 9-11 showed honest "no data yet" for the demo account, not fabricated numbers). Accessibility: **real axe-core 4.12.1 audit run** (2026-08-05 closure pass) across 23 routes against the live Docker stack — found and fixed missing progressbar names, insufficient destructive-button contrast, systemic heading-order skips, missing page headings on error/permission-denied states, and missing landmarks on Competition Mode; one flagged contrast issue investigated and confirmed a false positive (documented, not blindly "fixed"). Still open: no screen-reader session, no physical projector test, and mobile/tablet breakpoint testing could not be mechanically driven in this environment (viewport resize didn't affect the actual CSS viewport, confirmed by direct measurement) — still PARTIAL, not PASS, because of these three genuinely open items |
 | 15 | No committed secrets | PASS | `git log` diff of this pass touches no `.env*` files; `.env.example` unchanged |
 | 16 | Docs stay aligned with code | PASS | `CAREER_TWIN_SCORING.md`, `EXPERIMENT_LAB_SIMULATION.md`, `docs/security/*`, `docs/research/*` all updated in the same commit as their code |
 
@@ -79,6 +90,15 @@ docker:   5/5 services healthy from a clean `down -v && build --no-cache
           path) each recovered in ~10s
 ```
 
+**Re-confirmed unchanged in the 2026-08-05 final technical closure pass**
+(same counts — that pass's fixes were frontend-only accessibility markup
+plus one Dockerfile line, touching no backend-tested logic and adding no
+migration): pytest 165, ruff/mypy clean, frontend tsc/eslint clean,
+vitest 68, `next build` 24 routes, single alembic head `074b58839c25`,
+clean `down -v && build --no-cache && up -d` with all 5 services healthy,
+demo reset/Competition Mode/Research Lab/Interview Replay/Experiment Lab
+all re-verified live against the rebuilt production images.
+
 ## Known gaps, stated honestly
 
 **Resolved this pass** (kept here, struck through in spirit, for audit
@@ -92,6 +112,20 @@ trail — see `CURRENT_CHECKPOINT.md` for verification detail):
   automatically on every boot. Competition Mode steps 9-11 now show real
   data.
 
+**Resolved in the 2026-08-05 final technical closure pass:**
+
+- ~~Full WCAG accessibility audit... not independently re-verified~~ — a
+  real `axe-core` audit now ran against 23 live routes; 5 classes of real
+  issue found and fixed (see rule 14 above and `CURRENT_CHECKPOINT.md`).
+  Not fully closed: no screen-reader session, no projector test, and
+  mobile/tablet breakpoints weren't visually verified (tooling
+  limitation — viewport resize didn't take effect in this environment).
+- ~~Dependency vulnerability scanning... was not run~~ — `pip-audit` and
+  `npm audit` both ran for real. Backend: one build-tool CVE set found
+  and fixed (`setuptools`, pinned `>=78.1.1` in `backend/Dockerfile`).
+  Frontend: 0 vulnerabilities across 621 dependencies. See
+  `docs/security/SECURITY_REVIEW.md` "Dependency vulnerability scan."
+
 **Still genuinely open:**
 
 - No recorded video, printed poster, or physical stage rehearsal — these
@@ -99,11 +133,16 @@ trail — see `CURRENT_CHECKPOINT.md` for verification detail):
   session, as stated in `FINAL_BEAST_MASTER_EXECUTION_PLAN.md` §3. Text
   scripts for all of these exist in `docs/presentation/` and are clearly
   labeled as scripts, not recordings.
-- Full WCAG accessibility audit and mobile-breakpoint sweep across all 24
-  routes was not independently re-verified this pass beyond the specific
-  screens touched by the premium-UI pass and this pass's adversarial
-  browser walkthrough (which covered every route's happy path and its
-  unauthorized-access path, not a full breakpoint/zoom/screen-reader
-  matrix).
-- Dependency vulnerability scanning (`pip-audit`/`npm audit`) was not run
-  in this environment (no network access to vulnerability databases).
+- No screen-reader (NVDA/JAWS/VoiceOver) session and no physical projector
+  test — both require a human. **MANUAL ACTION REQUIRED.**
+- Mobile/tablet breakpoint testing was not visually verified this pass —
+  the browser automation tool's resize call didn't change the actual CSS
+  viewport in this environment (confirmed by measuring `window.
+  innerWidth` before/after). The codebase uses responsive Tailwind
+  breakpoints throughout (verifiable from source) but this wasn't
+  visually spot-checked. **MANUAL ACTION REQUIRED** (or re-attempt with a
+  tool that properly emulates viewport size).
+- Light-theme accessibility was not swept with axe (dark is the app's
+  default and what this pass's audit ran against).
+- Dependency scanning is a point-in-time check, not continuous monitoring
+  — a future pass should wire Dependabot/Renovate into CI.

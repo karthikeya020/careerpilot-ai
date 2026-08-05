@@ -1,6 +1,111 @@
 # Current Checkpoint
 
-## Independent adversarial audit pass (2026-08-05, this pass)
+## Final technical closure pass (2026-08-05, this pass)
+
+Closes the two documented verification gaps from the prior adversarial
+audit pass (below): a real accessibility audit (was manual-spot-check-only)
+and a real dependency vulnerability scan (was "not run in this
+environment"). No new product features; no scoring/research changes.
+
+**1. Accessibility audit — axe-core 4.12.1, live against the real Docker
+stack** (not a static lint rule): injected into a real logged-in browser
+session via a local static file server serving the installed `axe-core`
+npm package, run against every competition-critical route plus the
+broader route set (23 of 24 routes; `/onboarding` and `/register` not
+reached since they require an unauthenticated/fresh-account flow).
+
+Found and fixed, all live-reverified to 0 violations after each fix:
+- **Serious**: `aria-progressbar-name` — the shared `Progress` bar
+  component (used ~15 call sites: dashboard skill bars, Career Twin
+  components, interview dimension scores, job-match coverage, faculty/
+  placement/recruiter aggregates) had no accessible name. Added a
+  descriptive `aria-label` at every call site.
+- **Serious**: `color-contrast` — the destructive button variant (`bg-
+  danger text-white`) paired dark theme's light-red `--danger` token
+  (#f87171, tuned for *text* on dark backgrounds) with white text,
+  landing at ~2.8:1 contrast against WCAG AA's 4.5:1 minimum. Fixed with a
+  theme-invariant `bg-red-600` for that one variant, leaving `--danger`'s
+  other (correct) uses untouched.
+- **Moderate, systemic**: `heading-order` — the shared `CardTitle`
+  component always rendered `<h3>`, but on nearly every page a `Card` is
+  the first content directly after the page's `<h1>` with no `<h2>`
+  between them (13 files: trust-center, interview, interview replay,
+  experiment-lab, research-lab, responsible-ai, assessment, resume,
+  job-description, settings, admin, faculty, placement, recruiter). Added
+  an `as="h2"|"h3"|"h4"` prop to `CardTitle` (default unchanged) and
+  applied `h2` at every first-level Card usage.
+- **Moderate**: `page-has-heading-one` — `ErrorState`'s title was always a
+  `<p>`, so any page whose data-fetch fails (or, for the four role
+  dashboards, whose viewer lacks the role) rendered with zero headings.
+  Classified every call site by whether `ErrorState` is genuinely the
+  page's only content (9 sites: dashboard, career-twin, interview session,
+  interview replay, responsible-ai, admin, faculty, placement, recruiter —
+  now `titleAs="h1"`) vs. nested inside a page that already has its own
+  h1 (5 sites: assessment, job-description, resume, settings, trust-center
+  — left as `<p>` to avoid a duplicate h1).
+- **Moderate**: `region` — Competition Mode's fullscreen presentation
+  overlay had no landmark regions at all (a real, if lower-priority,
+  finding for a kiosk-style UI). Converted its header/content/footer
+  `<div>`s to `<header>`/`<main>`/`<footer>`, visually identical.
+- One flagged `color-contrast` on the landing page (`/`) was investigated
+  and is a **verified axe false positive**, not fixed: `getComputedStyle`
+  on the exact flagged elements (`Log in`, `Explore the demo` links)
+  returns `rgb(243,242,251)` text on a transparent background (~17:1
+  real contrast against the page's near-black background), confirmed
+  against a screenshot showing clearly legible white text. Documented
+  rather than "fixed" with a change that would have done nothing.
+- 12 new/updated backend files were not touched by this section — this is
+  entirely a frontend pass (24 files changed).
+
+Real gaps not closed this pass, stated honestly:
+- Viewport resize testing (tablet/mobile breakpoints) could not be
+  mechanically driven in this environment — the browser automation tool's
+  window-resize call did not change the page's actual CSS viewport
+  (`window.innerWidth` stayed at 1707px after requesting 400px), a tooling
+  limitation confirmed by direct measurement, not a skipped step. The
+  codebase does use responsive Tailwind breakpoints (`sm:`/`md:` classes)
+  throughout, verifiable from source, but this was not visually
+  spot-checked at real mobile/tablet widths this pass.
+- No screen-reader (NVDA/JAWS/VoiceOver) session was run — axe-core checks
+  the accessibility tree mechanically; it is not a substitute for a human
+  screen-reader pass. **MANUAL ACTION REQUIRED.**
+- No physical projector test. **MANUAL ACTION REQUIRED.**
+- Light theme was not swept with axe (dark is the app default and what
+  every check above ran against).
+
+**2. Dependency vulnerability scan — `pip-audit` + `npm audit`, real
+run**: backend had one vulnerable package (`setuptools` 65.5.0, a
+build-tool transitive dependency, 4 CVEs, none reachable through this
+app's own code paths) — fixed by pinning `setuptools>=78.1.1` in
+`backend/Dockerfile`'s install step, verified inside the rebuilt image.
+Frontend: 0 vulnerabilities across 621 dependencies. Full detail in
+`docs/security/SECURITY_REVIEW.md` "Dependency vulnerability scan."
+
+**3. Regression validation, all re-run after the above**: backend 165
+tests / ruff / mypy all clean (unchanged counts — this pass touched no
+backend test-covered logic); frontend 68 tests / tsc / eslint / `next
+build` (24 routes) all clean; full clean `docker compose down -v && build
+--no-cache && up -d` from empty volumes — 5/5 services healthy, single
+migration head `074b58839c25`, demo reset verified (real interview +
+4 experiment scenarios + 5 research/ablation runs on first boot), and
+Competition Mode/Research Lab/Interview Replay/Experiment Lab all
+re-verified live in a real browser against the rebuilt production images
+(not the dev server used for the accessibility fix-iterate loop).
+
+**4. Release freeze**: see `git log` for the closing commit and the
+`careerpilot-competition-final` tag. Working tree clean; no secrets
+tracked (`.env*` gitignored, only `.env.example` placeholders committed);
+9 real screenshots captured this pass under `docs/presentation/
+screenshots/` (fictional seeded demo account only, no real person's
+data); demo resume/audio fixtures were already fictional/synthetic
+(confirmed: "Aanya Sharma" is a fabricated persona from `app/seed/
+seed_demo.py`, the audio fixture is a generated silent WAV, not a real
+recording).
+
+See `docs/implementation/FINAL_ACCEPTANCE_MATRIX.md` for the updated
+item-by-item status.
+
+## Independent adversarial audit pass (2026-08-05, prior pass this session)
 
 Closes the two genuine gaps the prior "Final Beast Master" pass disclosed
 honestly (below, unchanged) — demo dataset completeness and the ablation

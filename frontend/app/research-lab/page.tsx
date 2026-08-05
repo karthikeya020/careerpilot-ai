@@ -50,7 +50,7 @@ function RoutingResultCard({ result }: { result: RoutingExperimentOut }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Experiment A: routing-strategy agreement with rubric labels</CardTitle>
+        <CardTitle as="h2">Experiment A: routing-strategy agreement with rubric labels</CardTitle>
         <CardDescription>{result.case_count} curated cases -- higher agreement means the strategy routed the way a reviewer would expect.</CardDescription>
       </CardHeader>
       <CardContent>
@@ -71,7 +71,7 @@ function GraphVsVectorResultCard({ result }: { result: GraphVsVectorExperimentOu
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Experiment B: GraphRAG traversal vs vector-only retrieval</CardTitle>
+        <CardTitle as="h2">Experiment B: GraphRAG traversal vs vector-only retrieval</CardTitle>
         <CardDescription>Does the retrieval method surface the correct prerequisite concept behind a missed question?</CardDescription>
       </CardHeader>
       <CardContent>
@@ -178,7 +178,7 @@ function AblationSuiteCard({ result }: { result: AblationSuiteOut }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Six-ablation comparison</CardTitle>
+        <CardTitle as="h2">Six-ablation comparison</CardTitle>
         <CardDescription>{result.methodology_note}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -255,7 +255,7 @@ function ResearchLabBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Confidence calibration</CardTitle>
+          <CardTitle as="h2">Confidence calibration</CardTitle>
           <CardDescription>How well does stated confidence match actual accuracy, across all runs so far?</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -316,7 +316,7 @@ function ResearchLabBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Run history</CardTitle>
+          <CardTitle as="h2">Run history</CardTitle>
         </CardHeader>
         <CardContent>
           {runsLoading ? (

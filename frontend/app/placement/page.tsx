@@ -20,6 +20,7 @@ function PlacementBody() {
         message={isPermissionDenied ? "This dashboard is only available to placement-staff and administrator accounts." : error instanceof Error ? error.message : "Couldn't load the placement dashboard."}
         onRetry={isPermissionDenied ? undefined : () => refetch()}
         isPermissionDenied={isPermissionDenied}
+        titleAs="h1"
       />
     );
   }
@@ -44,7 +45,7 @@ function PlacementBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Readiness distribution</CardTitle>
+          <CardTitle as="h2">Readiness distribution</CardTitle>
           <CardDescription>Number of students by overall Career Twin readiness range.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -86,7 +87,7 @@ function PlacementBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Most common skill gaps</CardTitle>
+          <CardTitle as="h2">Most common skill gaps</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {data.common_skill_gaps.map((gap) => (

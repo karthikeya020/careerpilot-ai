@@ -17,7 +17,7 @@ export function JobDescriptionStatusCard({ status }: { status: JobDescriptionSta
         {status.added ? (
           <>
             <p className="truncate text-sm text-foreground">{status.title}</p>
-            <Progress value={(status.coverage ?? 0) * 100} />
+            <Progress value={(status.coverage ?? 0) * 100} aria-label={`Job description coverage: ${formatPercent(status.coverage)}`} />
             <p className="text-xs text-muted">
               Coverage {formatPercent(status.coverage)} · {status.matched_count} matched · {status.partial_count}{" "}
               partial · {status.missing_count} missing

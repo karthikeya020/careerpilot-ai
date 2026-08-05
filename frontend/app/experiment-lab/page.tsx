@@ -77,14 +77,14 @@ function AllocationRow({
   );
 }
 
-function ScenarioResultCard({ scenario }: { scenario: ExperimentScenarioOut }) {
+function ScenarioResultCard({ scenario, titleAs = "h3" }: { scenario: ExperimentScenarioOut; titleAs?: "h2" | "h3" }) {
   const result = scenario.result;
   if (!result) return null;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{scenario.name}</CardTitle>
+        <CardTitle as={titleAs}>{scenario.name}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4 text-center sm:grid-cols-3">
@@ -210,7 +210,7 @@ function ExperimentLabBody() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Build a scenario</CardTitle>
+          <CardTitle as="h2">Build a scenario</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input value={name} onChange={(e) => setName(e.target.value)} aria-label="Scenario name" placeholder="Scenario name" />
@@ -238,11 +238,11 @@ function ExperimentLabBody() {
         </CardContent>
       </Card>
 
-      {latestResult && <ScenarioResultCard scenario={latestResult} />}
+      {latestResult && <ScenarioResultCard scenario={latestResult} titleAs="h2" />}
 
       <Card>
         <CardHeader>
-          <CardTitle>Past scenarios</CardTitle>
+          <CardTitle as="h2">Past scenarios</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {scenariosLoading ? (
