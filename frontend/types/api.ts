@@ -509,6 +509,12 @@ export interface GraphVsVectorExperimentOut {
   sample_size_warning: string;
 }
 
+export interface AblationSuiteOut {
+  harness_version: string;
+  ablations: Record<string, Record<string, unknown>>;
+  methodology_note: string;
+}
+
 export interface EvaluationRunSummaryOut {
   id: string;
   name: string;

@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAdminDashboard } from "@/hooks/use-role-dashboards";
+import { ApiError } from "@/lib/api-client";
 import { formatDateTime, formatPercent, titleCase } from "@/lib/utils";
 
 function HealthBadge({ label, ok }: { label: string; ok: boolean }) {
@@ -27,7 +28,14 @@ function AdminBody() {
 
   if (isLoading) return <Skeleton className="h-96" />;
   if (isError || !data) {
-    return <ErrorState message={error instanceof Error ? error.message : "Couldn't load the admin dashboard."} onRetry={() => refetch()} />;
+    const isPermissionDenied = error instanceof ApiError && error.status === 403;
+    return (
+      <ErrorState
+        message={isPermissionDenied ? "This dashboard is only available to administrator accounts." : error instanceof Error ? error.message : "Couldn't load the admin dashboard."}
+        onRetry={isPermissionDenied ? undefined : () => refetch()}
+        isPermissionDenied={isPermissionDenied}
+      />
+    );
   }
 
   return (

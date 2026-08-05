@@ -8,6 +8,12 @@ before presenting** — they are deterministic in route/accuracy but will
 generate a fresh `run_id` and may see a different calibration sample size
 depending on how many prior runs are pooled in that database.
 
+**All six named ablation seams now run** (Experiments A/B below cover
+seams 1-3; seams 4-6 are new this pass — see "Ablations 4-6" below and
+`docs/research/ABLATION_GUIDE.md`). `POST /api/v1/research/experiments/ablations`
+runs all six in one call and is also run automatically by the demo seed,
+so a fresh Docker boot already has real results stored.
+
 ## Experiment A — Routing strategy agreement
 
 | Variant | Agreement rate | Cases |
@@ -68,6 +74,19 @@ target for future work (e.g., tightening the graph-traversal experiment's
 flat 1.0 confidence, which contributes disproportionately to the
 high-confidence bucket and is confidence-by-construction rather than a
 genuinely uncertain model estimate).
+
+## Ablations 4-6 (new this pass)
+
+Real results from `POST /research/experiments/ablations`, 2026-08-05.
+Small curated case sets (3-4 cases each), all `preliminary: true`. Full
+per-case tables in `docs/research/ABLATION_GUIDE.md`; raw JSON of this
+exact run in the git history of this file's commit.
+
+| Ablation | Cases | Headline finding |
+|---|---|---|
+| 4. Career Twin memory disabled vs. enabled | 3 | Enabling memory shifts consensus confidence toward 1.0 by +0.6 to +3.9 points — because `MemoryOutput.confidence` is currently a fixed 1.0 signal, not graded by relevance. Disclosed limitation, not a smoothed-over result. |
+| 5. Reflection (critic) disabled vs. enabled | 4 | Critic only penalizes high-confidence (>=0.5) claims with no evidence citation: 0 delta on the clean case, -10 points on one unsupported claim, -20 points on two. |
+| 6. Consensus disabled vs. enabled | 4 | Penalty grows monotonically with disagreement: -2 points at low disagreement, -22 points at extreme disagreement; only high/extreme cases flagged for escalation. |
 
 ## How to reproduce this exact table
 

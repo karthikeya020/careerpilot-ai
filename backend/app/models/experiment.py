@@ -39,7 +39,9 @@ class ExperimentScenario(UUIDPKMixin, Base):
         GUID(), ForeignKey("student_profiles.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    target_role_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("target_roles.id"), nullable=True)
+    target_role_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), ForeignKey("target_roles.id", ondelete="SET NULL"), nullable=True
+    )
     time_horizon_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
     # list[{"skill_name": str, "activity_type": str, "hours": float}]
     allocations: Mapped[list] = mapped_column(JSONBType(), nullable=False)
@@ -59,7 +61,7 @@ class ExperimentResult(UUIDPKMixin, Base):
     )
     engine_version: Mapped[str] = mapped_column(String(30), nullable=False)
     baseline_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
-        GUID(), ForeignKey("career_twin_snapshots.id"), nullable=True
+        GUID(), ForeignKey("career_twin_snapshots.id", ondelete="SET NULL"), nullable=True
     )
     current_overall_score: Mapped[float | None] = mapped_column(Numeric(5, 4), nullable=True)
     simulated_overall_score: Mapped[float | None] = mapped_column(Numeric(5, 4), nullable=True)

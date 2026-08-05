@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRecruiterCandidates } from "@/hooks/use-role-dashboards";
+import { ApiError } from "@/lib/api-client";
 import { formatPercent } from "@/lib/utils";
 
 function RecruiterBody() {
@@ -16,7 +17,14 @@ function RecruiterBody() {
 
   if (isLoading) return <Skeleton className="h-96" />;
   if (isError) {
-    return <ErrorState message={error instanceof Error ? error.message : "Couldn't load candidates."} onRetry={() => refetch()} />;
+    const isPermissionDenied = error instanceof ApiError && error.status === 403;
+    return (
+      <ErrorState
+        message={isPermissionDenied ? "This dashboard is only available to recruiter and administrator accounts." : error instanceof Error ? error.message : "Couldn't load candidates."}
+        onRetry={isPermissionDenied ? undefined : () => refetch()}
+        isPermissionDenied={isPermissionDenied}
+      />
+    );
   }
 
   return (

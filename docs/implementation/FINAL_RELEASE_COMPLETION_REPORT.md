@@ -1,5 +1,43 @@
 # Final Release Completion Report
 
+## Addendum: independent adversarial audit pass (2026-08-05)
+
+This report's §6 "Recommended next steps" listed two pre-demo housekeeping
+items and one research-rigor item. This pass did all three, plus found and
+fixed two real bugs along the way. Full detail in
+`docs/implementation/CURRENT_CHECKPOINT.md` "Independent adversarial audit
+pass"; summary:
+
+- §6 item 1 (seed one real interview + one real experiment on the demo
+  account) — **done**, and automated: the demo seed now does this on
+  every container boot, not a manual pre-demo step.
+- §6 item 2 (run both Research Lab experiments once for live numbers) —
+  **done**, same automatic seed.
+- §6 item 3 (build the automated ablation harness) — **done**: all six
+  named ablation seams now run for real, not the two the prior pass
+  shipped.
+- **Bug found and fixed** (data integrity): seven cross-table foreign
+  keys had no `ON DELETE` behavior, causing the demo-reset flow to crash
+  with a Postgres `ForeignKeyViolation` the moment the demo account had
+  real cross-referencing history (exposed by fixing the item above).
+  Fixed via migration `074b58839c25`; live-verified with 3 consecutive
+  backend restarts against real Postgres, ~10s recovery each.
+- **Bug found and fixed** (UI): the four role-gated dashboards showed a
+  generic, alarming "Something went wrong / Try again" card for a normal
+  403 authorization boundary. Now a calm "Access restricted" state.
+- Independently re-verified, no regressions: cross-user IDOR, role-based
+  403s, rate limiting, CORS, Responsible AI export/deletion isolation,
+  and Neo4j/Redis/**Postgres** outage-and-recovery (Postgres outage was
+  not previously tested live).
+- Quality gate: **165** backend tests (was 159), 68 frontend tests
+  (unchanged), all lint/type checks clean, single alembic head, `next
+  build` succeeds at 24 routes.
+
+Nothing in the original report below was found to be inaccurate; it is
+left unchanged as the historical record of that pass.
+
+## Original report (prior pass, unchanged below)
+
 2026-08-05. This report closes out the "Final Beast Master" pass on top of
 the already-accepted Phase 1, Phase 2, P0 (Interview Arena), and P1
 (Experiment Lab) work. It states what was built, how each piece was
@@ -96,23 +134,23 @@ session in this pass, not described secondhand:
   checkmarks against item numbers no longer in view, this pass
   reconstructed and independently verified every substantive area the
   gate named (see `FINAL_ACCEPTANCE_MATRIX.md`).
-- The full ablation matrix (memory on/off, reflection on/off, consensus
-  on/off, reranking on/off, evidence-diversity weighting on/off) is
-  designed and has real, inspectable code seams, but is not wired into an
-  automated harness that produces a number. `docs/research/
-  ABLATION_GUIDE.md` states this plainly rather than showing a fabricated
-  comparison table.
+- ~~The full ablation matrix... is not wired into an automated harness~~
+  **— done in the 2026-08-05 adversarial audit pass** (see the addendum
+  at the top of this file and `docs/research/ABLATION_GUIDE.md`). Kept
+  here, not deleted, for the audit trail.
 - No recorded video, printed poster, or in-person stage rehearsal was
   produced — these require a human and physical hardware, out of scope
   for an automated coding session.
 - A full WCAG accessibility audit and mobile-breakpoint sweep across all
   24 routes was not independently re-run this pass beyond the specific
-  screens the premium-UI pass touched.
-- The demo account currently has zero stored Interview Arena and
-  Experiment Lab history, so Competition Mode steps 9-11 correctly show
-  an honest empty state. This is documented as a required pre-demo setup
-  step (run one real interview and one real experiment on the demo
-  account before presenting), not silently worked around with fake data.
+  screens the premium-UI pass touched (still true after the adversarial
+  audit pass too — that pass added a full-route unauthorized-access and
+  broken-link sweep, not a dedicated axe-core/breakpoint matrix).
+- ~~The demo account currently has zero stored Interview Arena and
+  Experiment Lab history~~ **— done in the 2026-08-05 adversarial audit
+  pass**: the demo seed now creates real interview, experiment, and
+  research-lab history automatically on every boot. Competition Mode
+  steps 9-11 show real data with no manual pre-demo step.
 
 ## 4. Files changed this pass (on top of the P0/P1 checkpoint)
 

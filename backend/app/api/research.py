@@ -7,11 +7,13 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.core.errors import NotFoundError
+from app.evaluation.ablations import run_full_ablation_suite
 from app.evaluation.calibration import compute_calibration
 from app.evaluation.graph_vs_vector import run_graph_vs_vector_evaluation
 from app.evaluation.run import run_evaluation
 from app.models.evaluation import EvaluationRun
 from app.schemas.research import (
+    AblationSuiteOut,
     CalibrationReportOut,
     EvaluationRunSummaryOut,
     GraphVsVectorExperimentOut,
@@ -30,6 +32,17 @@ def run_routing_experiment(db: Session = Depends(get_db), _user=Depends(get_curr
 @router.post("/experiments/graph-vs-vector", response_model=GraphVsVectorExperimentOut)
 def run_graph_vs_vector_experiment(db: Session = Depends(get_db), _user=Depends(get_current_user)) -> dict:
     return run_graph_vs_vector_evaluation(db)
+
+
+@router.post("/experiments/ablations", response_model=AblationSuiteOut)
+def run_ablation_suite(db: Session = Depends(get_db), _user=Depends(get_current_user)) -> dict:
+    """Runs all six named ablation seams (CARE, graph retrieval, vector
+    retrieval, Career Twin memory, reflection, consensus) and returns one
+    consolidated report. See app/evaluation/ablations.py. The Career Twin
+    memory ablation uses the most recently created student profile in the
+    database (not necessarily the caller's -- this is a system-wide research
+    harness, not a per-student report)."""
+    return run_full_ablation_suite(db)
 
 
 @router.get("/runs", response_model=list[EvaluationRunSummaryOut])

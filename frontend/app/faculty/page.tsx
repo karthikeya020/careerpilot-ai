@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFacultyDashboard } from "@/hooks/use-role-dashboards";
+import { ApiError } from "@/lib/api-client";
 import { formatPercent } from "@/lib/utils";
 
 function FacultyBody() {
@@ -16,7 +17,14 @@ function FacultyBody() {
 
   if (isLoading) return <Skeleton className="h-96" />;
   if (isError || !data) {
-    return <ErrorState message={error instanceof Error ? error.message : "Couldn't load the faculty dashboard."} onRetry={() => refetch()} />;
+    const isPermissionDenied = error instanceof ApiError && error.status === 403;
+    return (
+      <ErrorState
+        message={isPermissionDenied ? "This dashboard is only available to faculty and administrator accounts." : error instanceof Error ? error.message : "Couldn't load the faculty dashboard."}
+        onRetry={isPermissionDenied ? undefined : () => refetch()}
+        isPermissionDenied={isPermissionDenied}
+      />
+    );
   }
 
   return (

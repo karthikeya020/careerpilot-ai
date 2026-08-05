@@ -1,5 +1,13 @@
 # Video Script (Backup Demo Recording)
 
+**Status: this is a text script only — no video has been recorded.**
+Recording requires a human at a keyboard with screen-capture software,
+which is out of scope for an automated coding session (see
+`FINAL_BEAST_MASTER_EXECUTION_PLAN.md` §3 and
+`FINAL_ACCEPTANCE_MATRIX.md` "Known gaps"). Do not present this as a
+completed video asset — it is the shot list and narration a human
+presenter would use to record one.
+
 A ~3-minute screen-recording script to have as a pre-recorded fallback
 (see `BACKUP_DEMO_PLAN.md` "absolute last resort"). Record at 1920×1080,
 narrate live or dub afterward.

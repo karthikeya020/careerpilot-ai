@@ -43,7 +43,7 @@ class CareerTwinSnapshot(UUIDPKMixin, Base):
     change_summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
     score_delta: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
     previous_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
-        GUID(), ForeignKey("career_twin_snapshots.id"), nullable=True
+        GUID(), ForeignKey("career_twin_snapshots.id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(default=utcnow, nullable=False)
 

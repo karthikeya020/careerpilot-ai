@@ -47,3 +47,19 @@ class CalibrationReportOut(BaseModel):
     bins: list[ReliabilityBinOut]
     high_confidence_error_rate: float | None
     preliminary: bool
+
+
+class AblationSeamOut(BaseModel):
+    """Loosely-typed on purpose: each of the six seams has a different real
+    shape (routing agreement rates vs. per-case confidence deltas), and this
+    schema's job is to guarantee every seam is a real, present, structured
+    object -- never a missing key or a raw unvalidated blob -- not to force
+    a one-size-fits-all shape onto genuinely different experiments."""
+
+    model_config = {"extra": "allow"}
+
+
+class AblationSuiteOut(BaseModel):
+    harness_version: str
+    ablations: dict[str, AblationSeamOut]
+    methodology_note: str

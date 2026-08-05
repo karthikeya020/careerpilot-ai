@@ -46,14 +46,26 @@ caching layer currently depends on Redis being up.
 **Recovery**: none needed for demo continuity;
 `docker compose restart redis` if desired.
 
-## PostgreSQL restart
+## PostgreSQL restart / full demo-account reset
 
 **What happens**: on backend restart, the seeded demo account
 (`demo.student@careerpilot.ai`) resets to its known-good state by design
-(`seed_demo.py` runs on every backend boot) — this is a *feature* for
-demo reliability, not data loss. Any other (non-demo) account's data
-persists normally across restarts (verified in Phase 2).
-**Recovery**: log back in. **~5 seconds.**
+(`seed_demo.py` runs on every backend boot, including a real interview,
+4 real experiment scenarios, and a full ablation-suite run) — this is a
+*feature* for demo reliability, not data loss. Any other (non-demo)
+account's data persists normally across restarts (verified in Phase 2 and
+re-verified this pass with a throwaway account across postgres+neo4j
+restarts). A real bug in this exact reset path (a missing `ON DELETE`
+clause on 7 foreign keys, crashing the reseed once the demo account had
+real cross-referencing history) was found and fixed in the 2026-08-05
+adversarial audit pass — live-verified with 3 consecutive restarts.
+**Recovery**: log back in. **~10 seconds** (live-measured this pass, 3
+consecutive restarts, target was <15s).
+
+**Postgres fully stopped mid-session** (not just backend restart) —
+live-tested this pass: `/health` and `/health/dependencies` both stayed
+responsive and correctly reported `degraded`/`database: false` rather
+than crashing; full recovery confirmed after restarting Postgres.
 
 ## Browser refresh mid-flow
 

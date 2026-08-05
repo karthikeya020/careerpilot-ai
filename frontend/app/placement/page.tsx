@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePlacementDashboard } from "@/hooks/use-role-dashboards";
+import { ApiError } from "@/lib/api-client";
 import { formatPercent } from "@/lib/utils";
 
 function PlacementBody() {
@@ -13,7 +14,14 @@ function PlacementBody() {
 
   if (isLoading) return <Skeleton className="h-96" />;
   if (isError || !data) {
-    return <ErrorState message={error instanceof Error ? error.message : "Couldn't load the placement dashboard."} onRetry={() => refetch()} />;
+    const isPermissionDenied = error instanceof ApiError && error.status === 403;
+    return (
+      <ErrorState
+        message={isPermissionDenied ? "This dashboard is only available to placement-staff and administrator accounts." : error instanceof Error ? error.message : "Couldn't load the placement dashboard."}
+        onRetry={isPermissionDenied ? undefined : () => refetch()}
+        isPermissionDenied={isPermissionDenied}
+      />
+    );
   }
 
   const maxCount = Math.max(1, ...data.readiness_distribution.map((b) => b.student_count));

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type {
+  AblationSuiteOut,
   CalibrationReportOut,
   EvaluationRunSummaryOut,
   GraphVsVectorExperimentOut,
@@ -36,6 +37,17 @@ export function useRunGraphVsVectorExperiment() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => api.post<GraphVsVectorExperimentOut>("/research/experiments/graph-vs-vector"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["research-runs"] });
+      queryClient.invalidateQueries({ queryKey: ["research-calibration"] });
+    },
+  });
+}
+
+export function useRunAblationSuite() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<AblationSuiteOut>("/research/experiments/ablations"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["research-runs"] });
       queryClient.invalidateQueries({ queryKey: ["research-calibration"] });

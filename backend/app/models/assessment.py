@@ -103,7 +103,9 @@ class AssessmentAttempt(UUIDPKMixin, Base):
         GUID(), ForeignKey("student_profiles.id", ondelete="CASCADE"), nullable=False, index=True
     )
     domain_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("assessment_domains.id"), nullable=False)
-    target_role_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("target_roles.id"), nullable=True)
+    target_role_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), ForeignKey("target_roles.id", ondelete="SET NULL"), nullable=True
+    )
     status: Mapped[str] = mapped_column(String(20), default=ATTEMPT_STATUS_IN_PROGRESS, nullable=False)
     started_at: Mapped[datetime] = mapped_column(default=utcnow, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(nullable=True)

@@ -82,3 +82,13 @@ def test_calibration_with_no_data_returns_empty_not_fabricated(client) -> None:
 def test_research_endpoints_require_auth(client) -> None:
     assert client.post("/api/v1/research/experiments/routing").status_code == 401
     assert client.get("/api/v1/research/runs").status_code == 401
+
+
+def test_ablation_suite_endpoint_reports_all_six_seams(client) -> None:
+    headers = _register_and_auth(client, email="ablation-suite@example.com")
+    response = client.post("/api/v1/research/experiments/ablations", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["harness_version"] == "ablation-v1"
+    assert len(body["ablations"]) == 6
+    assert client.post("/api/v1/research/experiments/ablations").status_code == 401

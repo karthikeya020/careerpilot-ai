@@ -38,19 +38,29 @@ typed (or recorded) answer, show the live evaluation: dimension scores,
 strengths/improvements, CARE route, agents invoked. Open Interview Replay
 — transcript, timeline markers, evidence checks, better-answer framework.
 
-**7. Career Experiment Lab** (60s) — run "20 hours SQL" then "20 hours
-Communication," compare side by side. Point at the disclaimer text.
+**7. Career Experiment Lab** (60s) — the demo account already has 4 real
+scenarios seeded (SQL, Data Structures, Communication, a balanced 30h
+mix) as a safety net, but for the live wow-moment, run "20 hours SQL"
+then "20 hours Communication" fresh in front of judges and compare side
+by side. Point at the disclaimer text.
 
-**8. Research Benchmark Lab** (45s) — run Experiment A live in front of
-judges (routing-strategy comparison), show the real agreement-rate chart.
-Run Experiment B (graph vs. vector), point at the honest methodology note.
+**8. Research Benchmark Lab** (45s) — click "Run all 6 ablations" live in
+front of judges (CARE, graph retrieval, vector retrieval, Career Twin
+memory, reflection, consensus) — real numbers computed on the spot, not
+pre-baked. Point at the honest "preliminary" labels and the memory
+ablation's disclosed limitation (a real negative finding, not hidden).
+Pre-seeded results from container boot are shown immediately even before
+clicking, as a safety net.
 
 **9. Responsible AI Center** (30s) — scroll the "never evaluates" list.
 Point at the model/formula/policy version badges.
 
 **10. Competition Mode** (optional closer, 60s) — `/competition`, press
 `Space` through Opening → Closing for the cinematic recap, or use it as
-the *entire* demo shell instead of steps 2-9 individually.
+the *entire* demo shell instead of steps 2-9 individually. All 14 steps
+show real data with zero manual setup — the demo seed pre-populates
+interview, experiment, and research history on every container boot, so
+there is no "run this first or step 9 will look empty" caveat anymore.
 
 ## If something fails mid-demo
 

@@ -55,3 +55,40 @@ in this pass (audio size limit, audio type allowlist, auth rate limiting)
 were medium severity. Documented limitations are either structurally
 low-risk in the current deployment (deterministic-provider-by-default) or
 require infrastructure not available in this environment to close further.
+
+## Independent re-verification pass (2026-08-05, adversarial audit)
+
+Re-tested live against the real Docker stack (not re-derived from the
+findings above) — no new security finding, all prior fixes still correct:
+
+- **Cross-user isolation (IDOR)**: registered two fresh accounts, created a
+  job description as one, confirmed the other gets `404` (not `403`) on
+  direct-ID access; same for a cross-user interview session lookup. No
+  token at all returns `401`.
+- **Role-based authorization**: the demo student account gets `403
+  "Requires one of roles: administrator"` on `/admin/dashboard` and `403
+  "Requires one of roles: faculty, administrator"` on `/faculty/dashboard`
+  — correctly a `403`, not a data leak, not a crash.
+- **Rate limiting**: 12 rapid failed logins from one IP — first several
+  return `401`, then `429` once the Redis-backed window fills, live
+  against real Redis.
+- **CORS**: an `OPTIONS` preflight from an untrusted origin
+  (`http://evil.example.com`) is rejected (`400 Disallowed CORS origin`),
+  confirming `allow_origins` is not a wildcard.
+- **Responsible AI export/deletion**: a fresh account's export contains
+  only its own rows; account deletion requires a re-entered password (a
+  bodyless `DELETE` correctly `422`s) and cascades correctly.
+
+One **data-integrity bug** (not a security vulnerability — no
+confidentiality/authorization impact, but worth recording here since it
+was found during this same adversarial pass and affects availability of
+the demo-reset flow): seven cross-table foreign keys (e.g.
+`interview_sessions.target_role_id`, `experiment_results.baseline_
+snapshot_id`) had no `ON DELETE` behavior, so deleting a student account
+with real interview/experiment/Career-Twin history raised a Postgres
+`ForeignKeyViolation` instead of cascading — invisible until this pass
+populated the demo account with exactly that history for the first time.
+Fixed with `ON DELETE SET NULL` on all seven (migration `074b58839c25`),
+live-verified with three consecutive backend container restarts against
+real Postgres, each recovering in ~10 seconds. See
+`docs/implementation/CURRENT_CHECKPOINT.md` for the full writeup.

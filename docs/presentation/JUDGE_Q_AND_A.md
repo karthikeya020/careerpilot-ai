@@ -73,8 +73,35 @@ environment; prompt-injection hardening (explicit "data, not instructions"
 framing in agent system prompts) is designed but not yet applied, since
 the default path is structurally immune (no live model call at all); the
 research dataset is small and curated, explicitly labeled preliminary,
-not a large human-reviewed benchmark. See `docs/implementation/FINAL_RELEASE_COMPLETION_REPORT.md`
+not a large human-reviewed benchmark; no recorded video, printed poster,
+or physical stage rehearsal exists (text scripts do, clearly labeled as
+scripts); a dedicated axe-core accessibility audit and full mobile-
+breakpoint sweep across all 24 routes hasn't been run beyond manual
+spot-checks. See `docs/implementation/FINAL_RELEASE_COMPLETION_REPORT.md`
 for the complete limitations list.
+
+**"Is the demo data real or faked for the presentation?"**
+Real, produced by the same service layer a real student's actions call —
+never hand-crafted rows. The seeded interview session ran through the
+actual CARE-routed evaluation pipeline (one answer via a real audio
+fixture, transcribed by a deterministic provider registered to that exact
+audio's hash — not a fabricated transcript); the resume-claim evidence
+check is a real `ResumeEvidenceAgent` call against the uploaded resume
+text; the Experiment Lab scenarios are real `sim-v1` engine runs; the
+Research Lab ablations are real calls to `ConsensusAgent`/`CriticAgent`/
+`MemoryAgent`. Everything resets to this same real state on every backend
+restart — there's no separate "demo mode" that computes differently from
+what a real student sees.
+
+**"How rigorous is the ablation study, really?"**
+Honestly: small and preliminary, not a large benchmark — every seam
+reports `preliminary: true`. What it is not is invented: all six seams
+(CARE, graph retrieval, vector retrieval, Career Twin memory, reflection,
+consensus) call the real production agent code and report real deltas,
+including one finding that isn't flattering (`MemoryAgent`'s confidence
+signal is currently a constant, not graded) — disclosed rather than
+hidden, because an ablation study that only shows numbers that make the
+system look good isn't a real ablation study.
 
 **"Why does the Career Twin sometimes show 'insufficient evidence'
 instead of a score?"**
