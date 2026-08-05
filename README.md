@@ -72,10 +72,46 @@ careerpilot-ai/
 └── .env.example
 ```
 
-## Quick Start
+## Quick Start (Docker — recommended, this is what the demo uses)
 
-See `docs/implementation/PHASE_1_COMPLETION_REPORT.md` for exact commands,
-demo credentials, and what's implemented vs. deferred to Phase 2. Short version:
+```bash
+docker compose up -d --build
+```
+
+That's it — migrations, Neo4j graph seeding, and the demo student (real
+completed interview, Experiment Lab scenarios, and a full Research Lab
+ablation-suite run) all happen automatically on container boot. Open
+http://localhost:3000/login and sign in with:
+
+```
+Email:    demo.student@careerpilot.ai
+Password: DemoPass!2026
+```
+
+**One-click reset**: `docker compose restart backend` — the demo account
+deletes and recreates itself with the same known-good state on every
+backend boot; any other (non-demo) account's data persists normally.
+
+**Offline / no paid AI provider**: no API key is required for any of the
+above — every score-producing path (Career Twin scoring, CARE routing,
+assessment grading, the simulation engine, speech-to-text for the seeded
+interview) has a deterministic, offline default. See
+`docs/security/PROMPT_INJECTION_DEFENSE.md` and `docs/presentation/
+BACKUP_DEMO_PLAN.md` for the full offline/failure-recovery story.
+
+**Full stack verification / clean rebuild**:
+```bash
+docker compose down -v          # drop volumes for a truly empty-DB test
+docker compose build --no-cache
+docker compose up -d
+docker compose ps               # all 5 services should show healthy
+curl http://localhost:8000/api/v1/health/dependencies
+```
+
+## Quick Start (without Docker, backend/frontend run separately)
+
+See `docs/implementation/PHASE_1_COMPLETION_REPORT.md` for the full
+manual walkthrough. Short version:
 
 ```bash
 # Backend (from backend/)
@@ -83,6 +119,7 @@ py -3.10 -m venv .venv && .venv\Scripts\activate   # or python3.10 -m venv .venv
 pip install -e ".[dev]"
 cp .env.example .env        # defaults to Docker Postgres; see comments for a SQLite-only local option
 alembic upgrade head
+python -m app.graphrag.run_seed
 python -m app.seed.seed_demo
 uvicorn app.main:app --reload
 
