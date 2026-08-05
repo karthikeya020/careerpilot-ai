@@ -32,11 +32,11 @@ from app.models.skill import (
     EVIDENCE_TYPE_ASSESSMENT,
     EVIDENCE_TYPE_JOB_MATCH,
     EVIDENCE_TYPE_PROJECT,
-    Skill,
     SkillEvidence,
 )
 from app.models.student import StudentProfile
 from app.schemas.career_twin import CareerTwinSnapshotOut, ReadinessComponentOut
+from app.services.evidence_service import get_active_skill_evidence
 
 SCORING_RULE_VERSION = "twin-v2"
 
@@ -179,11 +179,11 @@ def _score_component(component_type: str, evidence: list[SkillEvidence]) -> Comp
 
 
 def _compute_components(db: Session, student_profile_id: uuid.UUID) -> list[ComponentResult]:
-    evidence_rows = db.scalars(
-        select(SkillEvidence)
-        .where(SkillEvidence.student_profile_id == student_profile_id)
-        .join(Skill, Skill.id == SkillEvidence.skill_id)
-    ).all()
+    # Excludes resume-sourced evidence tied to a superseded resume version --
+    # see app/services/evidence_service.py. Career Twin scoring must always
+    # be a pure function of *currently active* evidence, never stale data
+    # from a resume the student has since replaced.
+    evidence_rows = get_active_skill_evidence(db, student_profile_id)
 
     skill_by_id = {row.skill_id: row.skill for row in evidence_rows}
 

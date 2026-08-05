@@ -82,3 +82,127 @@ def test_get_resume_without_upload_returns_404(client) -> None:
     headers = _register_and_auth(client)
     response = client.get("/api/v1/resumes/me", headers=headers)
     assert response.status_code == 404
+
+
+def _build_docx_with_skills(skills_line: str, projects_line: str) -> bytes:
+    document = Document()
+    document.add_paragraph("Test Student")
+    document.add_paragraph("SKILLS")
+    document.add_paragraph(skills_line)
+    document.add_paragraph("PROJECTS")
+    document.add_paragraph(projects_line)
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def test_replacing_a_resume_supersedes_the_old_one_and_removes_its_evidence_from_the_active_profile(client) -> None:
+    """DEFECT-001 regression test: uploading Resume B must make Resume A's
+    skills disappear from the active Career Twin / JD-match profile, while
+    Resume A itself remains in history (not deleted) -- see
+    docs/implementation/FINAL_TRUTH_FIRST_DEFECT_LEDGER.md DEFECT-001."""
+    headers = _register_and_auth(client, email="staleness@example.com")
+
+    # Resume A: Java-heavy backend resume.
+    resume_a_bytes = _build_docx_with_skills(
+        "Java, Spring, SQL, Git", "Built a Java Spring Boot microservice backed by a SQL database."
+    )
+    resp_a = client.post(
+        "/api/v1/resumes", headers=headers, files={"file": ("resume-a.docx", resume_a_bytes, DOCX_CONTENT_TYPE)}
+    )
+    assert resp_a.status_code == 201
+    resume_a = resp_a.json()
+    assert resume_a["is_active"] is True
+    skill_names_a = {rs["skill"]["name"] for rs in resume_a["resume_skills"]}
+    assert "Java" in skill_names_a
+
+    # Post a job description requiring Java -- must match while Resume A is active.
+    jd_resp = client.post(
+        "/api/v1/job-descriptions",
+        headers=headers,
+        json={
+            "title": "Backend Engineer",
+            "company": "Acme",
+            "raw_text": "We are hiring a backend engineer.\nRequired skills:\nJava\nPandas\n",
+        },
+    )
+    assert jd_resp.status_code == 201
+    jd_id = jd_resp.json()["id"]
+
+    match_before = client.get(f"/api/v1/job-descriptions/{jd_id}/match", headers=headers).json()
+    matched_before = {s["name"] for s in match_before["matched_skills"]} | {
+        s["name"] for s in match_before["partial_skills"]
+    }
+    assert "Java" in matched_before
+
+    # Resume B: an entirely different Python/data resume, no Java.
+    resume_b_bytes = _build_docx_with_skills(
+        "Python, Pandas, NumPy, Git", "Built a data pipeline using Python, Pandas, and NumPy."
+    )
+    resp_b = client.post(
+        "/api/v1/resumes", headers=headers, files={"file": ("resume-b.docx", resume_b_bytes, DOCX_CONTENT_TYPE)}
+    )
+    assert resp_b.status_code == 201
+    resume_b = resp_b.json()
+    assert resume_b["is_active"] is True
+    skill_names_b = {rs["skill"]["name"] for rs in resume_b["resume_skills"]}
+    assert "Pandas" in skill_names_b
+    assert "Java" not in skill_names_b
+
+    # GET /resumes/me now returns Resume B (the active one).
+    active_resp = client.get("/api/v1/resumes/me", headers=headers)
+    assert active_resp.json()["id"] == resume_b["id"]
+
+    # Resume A is preserved in history, marked superseded/inactive -- not deleted.
+    history_resp = client.get("/api/v1/resumes", headers=headers)
+    assert history_resp.status_code == 200
+    history = {r["id"]: r for r in history_resp.json()}
+    assert resume_a["id"] in history
+    assert history[resume_a["id"]]["is_active"] is False
+    assert history[resume_a["id"]]["superseded_at"] is not None
+    assert history[resume_b["id"]]["is_active"] is True
+
+    # The active JD match no longer counts Java (Resume A's evidence) and now
+    # counts Pandas (Resume B's evidence) -- proves recomputation, not staleness.
+    match_after = client.get(f"/api/v1/job-descriptions/{jd_id}/match", headers=headers).json()
+    matched_after = {s["name"] for s in match_after["matched_skills"]} | {
+        s["name"] for s in match_after["partial_skills"]
+    }
+    missing_after = {s["name"] for s in match_after["missing_skills"]}
+    assert "Pandas" in matched_after
+    assert "Java" in missing_after
+    assert "Java" not in matched_after
+
+    # Reactivating Resume A brings Java back into the active profile.
+    reactivate_resp = client.post(f"/api/v1/resumes/{resume_a['id']}/activate", headers=headers)
+    assert reactivate_resp.status_code == 200
+    assert reactivate_resp.json()["is_active"] is True
+
+    history_after_reactivate = {r["id"]: r for r in client.get("/api/v1/resumes", headers=headers).json()}
+    assert history_after_reactivate[resume_a["id"]]["is_active"] is True
+    assert history_after_reactivate[resume_b["id"]]["is_active"] is False
+
+    match_reactivated = client.get(f"/api/v1/job-descriptions/{jd_id}/match", headers=headers).json()
+    matched_reactivated = {s["name"] for s in match_reactivated["matched_skills"]} | {
+        s["name"] for s in match_reactivated["partial_skills"]
+    }
+    assert "Java" in matched_reactivated
+
+
+def test_resume_history_and_activation_are_isolated_per_student(client) -> None:
+    headers_a = _register_and_auth(client, email="isolation-owner@example.com")
+    headers_b = _register_and_auth(client, email="isolation-other@example.com")
+
+    resume_bytes = _build_docx_with_skills("Java, SQL", "A Java project.")
+    upload_resp = client.post(
+        "/api/v1/resumes", headers=headers_a, files={"file": ("resume.docx", resume_bytes, DOCX_CONTENT_TYPE)}
+    )
+    resume_id = upload_resp.json()["id"]
+
+    # A different student cannot see it in their own history...
+    other_history = client.get("/api/v1/resumes", headers=headers_b).json()
+    assert all(r["id"] != resume_id for r in other_history)
+
+    # ...and cannot activate it.
+    activate_resp = client.post(f"/api/v1/resumes/{resume_id}/activate", headers=headers_b)
+    assert activate_resp.status_code == 404

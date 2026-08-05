@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -41,6 +41,17 @@ class Resume(UUIDPKMixin, Base):
     parsing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(default=utcnow, nullable=False)
     parsed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    # Active-resume-version tracking (data-integrity fix): exactly one resume
+    # per student is active at a time. Uploading a new resume supersedes the
+    # previous one automatically; a student may also explicitly reactivate an
+    # older version. Resume-sourced SkillEvidence rows from a superseded
+    # resume are excluded from Career Twin scoring and job/JD matching (see
+    # app/services/evidence_service.py) so stale resume data can never
+    # silently drive a current result, while the row itself -- and its
+    # evidence history -- is preserved, never deleted.
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    superseded_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     sections: Mapped[list["ResumeSection"]] = relationship(
         back_populates="resume", cascade="all, delete-orphan", order_by="ResumeSection.order_index"

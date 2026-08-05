@@ -101,6 +101,36 @@ export interface GraphPathStepOut {
   is_inference: boolean;
 }
 
+export type GraphSourceOut = "neo4j" | "relational_fallback";
+
+export interface RootCauseResultOut {
+  graph_source: GraphSourceOut;
+  concept_slug: string;
+  path: GraphPathStepOut[];
+  missing_context_warning: boolean;
+  confidence: number;
+  target_role_relevance: string[];
+  recommended_resource_ids: string[];
+}
+
+export interface GraphNodeOut {
+  id: string;
+  label: string;
+  type: GraphPathStepOut["step_type"];
+}
+
+export interface GraphEdgeOut {
+  source: string;
+  target: string;
+  relationship: string;
+}
+
+export interface GraphSnapshotOut {
+  graph_source: GraphSourceOut;
+  nodes: GraphNodeOut[];
+  edges: GraphEdgeOut[];
+}
+
 export interface AgentRunOut {
   id: string;
   agent_name: string;
@@ -247,8 +277,22 @@ export interface ResumeOut {
   parsing_error: string | null;
   uploaded_at: string;
   parsed_at: string | null;
+  is_active: boolean;
+  superseded_at: string | null;
   sections: ResumeSectionOut[];
   resume_skills: ResumeSkillOut[];
+}
+
+export interface ResumeSummaryOut {
+  id: string;
+  original_filename: string;
+  file_size: number;
+  parsing_status: "pending" | "parsed" | "failed";
+  uploaded_at: string;
+  parsed_at: string | null;
+  is_active: boolean;
+  superseded_at: string | null;
+  skill_count: number;
 }
 
 export interface JobRequirementOut {

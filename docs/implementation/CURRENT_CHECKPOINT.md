@@ -1,6 +1,185 @@
 # Current Checkpoint
 
-## Final technical closure pass (2026-08-05, this pass)
+## Truth-first rescue pass, part 1: resume data-integrity fix (2026-08-06, this pass)
+
+**Start here for the next session.** A broad "truth-first rescue" review
+was requested, covering ~15 phases of the product (resume versioning,
+GraphRAG rebuild, a multi-domain assessment engine, deep interview NLP,
+job deduplication, Experiment/Research Lab depth, actionable Trust
+Center/Responsible AI controls, and a second visual pass). That full
+scope is genuinely weeks of work and was not attempted end to end — see
+`docs/implementation/FINAL_TRUTH_FIRST_RESCUE_PLAN.md` for the explicit
+reasoning on why breadth was not faked to match the request's scale, and
+`docs/implementation/FINAL_TRUTH_FIRST_DEFECT_LEDGER.md` /
+`FINAL_TRUTH_FIRST_ACCEPTANCE_MATRIX.md` for the full honest per-item
+status (most remaining phases are `BLOCKED`/`PARTIAL` with reasons
+stated, not silently skipped).
+
+**What this pass did fix, fully, with proof**: DEFECT-001 — resumes had
+no active-version concept, so every resume ever uploaded contributed
+`SkillEvidence` permanently, meaning Career Twin scores and job/JD match
+coverage silently kept using evidence from resumes the student had long
+since replaced. This directly violated Constitution rule 13. Fixed with
+a real active/superseded resume model (migration `a3f1c9e6b2d4`), a
+shared `evidence_service.get_active_skill_evidence` choke point now used
+by both Career Twin scoring and JD/job matching, resume history +
+reactivation endpoints, and a frontend resume-history UI with an
+active/superseded badge. Full detail, root cause, and both automated and
+live-browser proof (JD coverage swinging 67%→11%→67% across upload/
+reactivate) is in the defect ledger's DEFECT-001 entry — not
+duplicated here.
+
+**Quality gate this pass**: backend 167/167 (was 165) passed, ruff clean,
+mypy clean (153 files); frontend 70/70 (was 68) passed, `tsc`/`eslint`
+clean, `next build` succeeds (25 routes, unchanged route count); Docker
+backend+frontend rebuilt, migration ran clean against real non-empty
+Postgres (single head `a3f1c9e6b2d4`), all 5 services healthy.
+
+**Exact next unfinished action**: per the rescue plan's priority order,
+the next item is #2 (re-confirm GraphRAG live with a fresh walkthrough —
+low effort, likely already PASS) or #3 (assessment-domain breadth —
+large effort, start with 2-3 new domains rather than all ~19 at once).
+Do not start a new phase without first reading the defect ledger's
+existing entry for it, since several areas turned out to be already
+fixed or not applicable once actually investigated (see DEFECT-002+ in
+the ledger for GraphRAG, job deduplication, and others).
+
+## Premium visual transformation pass (2026-08-05, prior pass)
+
+Continues the visual redesign from where the first pass (global design
+system, shared UI primitives, Landing, Competition Entry, Career OS
+Dashboard, Career Twin, Competition Mode) left off. This pass redesigns
+every remaining major competition-visible screen with the same premium
+design language (`bg-mesh` hero headers, `card-premium`/`card-glow-brand`
+surfaces, the `text-h1`/`text-metric` type scale, the `animate-fade-up`/
+`animate-scale-in`/`animate-draw-line` motion set already defined in
+`app/globals.css`), builds a real GraphRAG root-cause page that did not
+exist before, and fixes one genuine production bug found during
+live-browser verification.
+
+**1. New: `/graphrag` — the cinematic root-cause reveal.** The backend has
+always had a real Neo4j-backed root-cause endpoint
+(`GET /graph/root-cause/{question_id}`, `app/api/graphrag.py`) and a
+frontend type (`GraphPathStepOut`) scaffolded for it, but no page or hook
+ever called it — the "GraphRAG root-cause experience" the product spec
+describes did not exist as a screen. Built this pass: `hooks/
+use-graphrag.ts` (root-cause + concept-neighborhood + graph-health
+queries), `hooks/use-resources.ts`, new types in `types/api.ts`
+(`RootCauseResultOut`, `GraphSnapshotOut`, etc.), and `app/graphrag/
+page.tsx` — a sequential-reveal node chain (student → missed question →
+weak concept, root-cause-spotlighted → concept dependency → target-role
+requirement → recommended resource) with distinct icon/color per node
+type, a stored-fact-vs-model-inference badge on every step, a Neo4j/
+relational-fallback badge, a confidence indicator, a collapsible
+Technical View showing the raw path, and loading/empty/error states. The
+missing-context warning and `is_inference` flag are read directly from
+the backend response, not fabricated. Wired in from two places: a new
+"See root cause" link on an incorrect assessment answer
+(`app/assessment/page.tsx`, previously gave no feedback on right/wrong at
+all — a real UX gap fixed as part of this wiring) and a "GraphRAG" entry
+in the main nav. **Live-verified end-to-end**: answered a SQL assessment
+question incorrectly in the running Docker stack, clicked "See root
+cause," and confirmed the real Neo4j-backed chain rendered (concept
+`Relational Model`, both target-role requirements, the linked resource
+"The Relational Model in 10 Minutes") — not a mock.
+
+**2. Redesigned with the premium system**: Interview Arena (`/interview`,
+`/interview/[sessionId]` — six-mode selection grid, a real Web-Audio-API
+amplitude visualizer added to `hooks/use-audio-recorder.ts` (was silent
+before), a live recording timer, and a CARE-processing state during
+evaluation), Interview Replay (synced timeline with click-to-seek markers,
+a new communication-metrics panel surfacing data the API already returned
+but the old page never rendered, an explicit "this is one answer, not
+permanent Twin mastery" banner), Experiment Lab (slider + numeric hour
+controls, confidence-range display derived from the existing
+confidence/uncertainty fields, assumptions/evidence drawers, ranked
+scenario comparison with a "Top recommendation" badge), Research Lab
+(general-audience/technical-judge toggle, a raw-JSON export button, the
+existing ablation tables gated behind the technical view), Trust Center
+(a new CARE execution timeline visualizing route selection → agents → 
+result for the selected decision, plus `?execution=` deep-link support so
+links from Interview Replay/missions actually preselect the right
+execution — they didn't before), Responsible AI Center (fixed a real
+content bug: the page rendered `non_claims` under the "Never evaluates"
+heading and never showed `does_not_evaluate` at all, even though the
+backend has always returned both as distinct lists; now both render
+correctly, plus a new "What CareerPilot will never do" section and a
+consent-settings display that wasn't shown before), and all four role
+dashboards (admin/faculty/placement/recruiter — distinct accent colors
+per role, honest "cohort of one" warnings when `total_students <= 1`
+rather than presenting single-student aggregates as a trend).
+
+**3. Competition Mode integration**: the GraphRAG slide now shows a
+schematic node-chain motif matching the new `/graphrag` page's visual
+language (was badges only), and every data-backed slide (GraphRAG, CARE,
+Interview, Experiment Lab, Research Lab, Responsible AI) gained an
+"Open the live [X]" link so a presenter can drop out of the fullscreen
+deck into the real interactive screen for Q&A.
+
+**4. One real production bug found and fixed via live-browser
+verification, not code review alone**: the root layout's no-flash
+theme-detection inline script (`app/layout.tsx`) imported
+`THEME_STORAGE_KEY` from `lib/theme-provider.tsx`, a `"use client"`
+module, and interpolated it into a `dangerouslySetInnerHTML` template
+literal. Next's RSC boundary serializes client-module exports referenced
+from a Server Component as client references — so instead of the literal
+string `"careerpilot_theme"`, the built script embedded the stringified
+body of Next's "cannot call a client function from the server" error
+shim, which itself contains an unescaped apostrophe (`"It's not
+possible..."`) that broke out of the single-quoted string literal,
+throwing `SyntaxError: missing ) after argument list` on **every single
+page load** in the production Docker build (confirmed via
+`read_console_messages`, not just inferred). Fixed by moving the constant
+to a new plain module with no `"use client"` directive
+(`lib/theme-constants.ts`), imported directly by both the server-rendered
+layout and the client theme provider. Re-verified after a full
+`docker compose up -d --build frontend`: `curl`'d the served HTML and
+confirmed the real key `careerpilot_theme` now appears in the inline
+script; re-navigated in a live browser tab and confirmed zero console
+exceptions.
+
+**Verified live, this pass** (against the rebuilt Docker stack, logged in
+as the demo student): GraphRAG empty state → assessment incorrect-answer
+flow → live root-cause chain reveal; Interview Arena mode selection →
+session → typed-answer submission → CARE-processing state → evaluation
+reveal; Trust Center execution timeline for the resulting interview
+evaluation; Research Lab "Run Experiment A" (real reliability-bin data
+updated, run history entry appeared, export button present); Experiment
+Lab "Run scenario" (current-vs-simulated reveal, confidence range,
+delta bars); Responsible AI Center evaluates/does-not-evaluate split;
+a role dashboard's 403 access-restricted state (demo account has no
+faculty/admin role); Competition Mode opening slide and the GraphRAG
+slide's new chain motif and live-reveal link.
+
+**Regression gate, all re-run after every change in this pass**: the
+redesign's first pass through `role-dashboards.test.tsx` caught two real
+regressions in the new copy — a faculty-dashboard student-count string
+that no longer matched the pluralization the test asserts, and a
+recruiter-dashboard disclaimer that had accidentally started containing
+the word "probability" (a pre-existing test correctly asserts that word
+must never appear on that page, since the constitution forbids ever
+implying a hiring probability). Both fixed in the app copy, not by
+loosening the tests. Final state: frontend 68 tests / 17 files passing;
+`tsc --noEmit` clean; `eslint .` clean across the whole frontend; `next
+build` succeeds, 25 routes (up from 24 — the new `/graphrag` route);
+`docker compose up -d --build frontend` — all 5 services healthy.
+
+**What's honestly not done this pass**: formal screenshot capture across
+every route × light/dark × three resolutions (only 2 new real screenshots
+were captured — `/graphrag` empty and populated states — added to the
+existing 9 under `docs/presentation/screenshots/`; the other newly
+redesigned screens were verified live in-browser but not saved as image
+files); no dedicated axe-core re-run against the newly redesigned screens
+(the prior pass's accessibility fixes to shared primitives — `Progress`
+aria-labels, `CardTitle` heading levels, `ErrorState` `titleAs` — were
+reused as-is in every new page, but the new bespoke markup, e.g. the
+GraphRAG node chain and the Interview Arena audio visualizer, was not
+independently re-audited); no physical projector test; light theme was
+spot-checked visually only (screenshot above is dark theme, the app
+default). No backend code was touched this pass — this is entirely a
+frontend redesign plus the one theme-script bug fix.
+
+## Final technical closure pass (2026-08-05, prior pass)
 
 Closes the two documented verification gaps from the prior adversarial
 audit pass (below): a real accessibility audit (was manual-spot-check-only)

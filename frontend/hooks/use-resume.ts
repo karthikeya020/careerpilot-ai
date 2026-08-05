@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
-import type { ResumeOut } from "@/types/api";
+import type { ResumeOut, ResumeSummaryOut } from "@/types/api";
+
+function invalidateProfileDependents(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ["resume"] });
+  queryClient.invalidateQueries({ queryKey: ["resume-history"] });
+  queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  queryClient.invalidateQueries({ queryKey: ["career-twin"] });
+  queryClient.invalidateQueries({ queryKey: ["missions"] });
+  queryClient.invalidateQueries({ queryKey: ["job-descriptions"] });
+}
 
 export function useResume() {
   return useQuery({
@@ -13,6 +22,13 @@ export function useResume() {
   });
 }
 
+export function useResumeHistory() {
+  return useQuery({
+    queryKey: ["resume-history"],
+    queryFn: () => api.get<ResumeSummaryOut[]>("/resumes"),
+  });
+}
+
 export function useUploadResume() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -21,11 +37,14 @@ export function useUploadResume() {
       formData.append("file", file);
       return api.post<ResumeOut>("/resumes", formData, { isFormData: true });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["resume"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["career-twin"] });
-      queryClient.invalidateQueries({ queryKey: ["missions"] });
-    },
+    onSuccess: () => invalidateProfileDependents(queryClient),
+  });
+}
+
+export function useActivateResume() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (resumeId: string) => api.post<ResumeOut>(`/resumes/${resumeId}/activate`),
+    onSuccess: () => invalidateProfileDependents(queryClient),
   });
 }

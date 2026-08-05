@@ -35,5 +35,25 @@ class ResumeOut(BaseModel):
     parsing_error: str | None
     uploaded_at: datetime
     parsed_at: datetime | None
+    is_active: bool
+    superseded_at: datetime | None
     sections: list[ResumeSectionOut]
     resume_skills: list[ResumeSkillOut]
+
+
+class ResumeSummaryOut(BaseModel):
+    """Lightweight row for the resume-history list -- no sections/skills, so
+    a student with many resume versions doesn't pull full parsed content for
+    every row just to render the history list."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    original_filename: str
+    file_size: int
+    parsing_status: str
+    uploaded_at: datetime
+    parsed_at: datetime | None
+    is_active: bool
+    superseded_at: datetime | None
+    skill_count: int

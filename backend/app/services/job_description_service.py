@@ -18,6 +18,7 @@ from app.models.skill import (
 )
 from app.models.student import StudentProfile
 from app.services import retrieval_service
+from app.services.evidence_service import get_active_skill_evidence
 from app.services.jd_extractor import extract_requirements
 
 logger = logging.getLogger(__name__)
@@ -88,12 +89,14 @@ def create_job_description(
 
 
 def _resume_weight_by_skill(db: Session, student_profile_id: uuid.UUID) -> dict[uuid.UUID, float]:
-    evidence_rows = db.scalars(
-        select(SkillEvidence).where(
-            SkillEvidence.student_profile_id == student_profile_id,
-            SkillEvidence.evidence_type.in_([EVIDENCE_TYPE_RESUME, EVIDENCE_TYPE_PROJECT]),
-        )
-    ).all()
+    # Excludes resume-sourced evidence tied to a superseded resume version
+    # (app/services/evidence_service.py) -- JD/job matching must always
+    # reflect the student's currently active resume, never a replaced one.
+    evidence_rows = [
+        row
+        for row in get_active_skill_evidence(db, student_profile_id)
+        if row.evidence_type in (EVIDENCE_TYPE_RESUME, EVIDENCE_TYPE_PROJECT)
+    ]
     weights: dict[uuid.UUID, float] = {}
     for row in evidence_rows:
         weights[row.skill_id] = max(weights.get(row.skill_id, 0.0), float(row.weight))

@@ -1,23 +1,94 @@
 "use client";
 
-import { FileText, Upload } from "lucide-react";
+import { CheckCircle2, Clock, FileText, History, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Protected } from "@/components/layout/protected";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useResume, useUploadResume } from "@/hooks/use-resume";
+import { useActivateResume, useResume, useResumeHistory, useUploadResume } from "@/hooks/use-resume";
 import { ApiError } from "@/lib/api-client";
 import { formatDateTime, formatPercent, titleCase } from "@/lib/utils";
+import type { ResumeSummaryOut } from "@/types/api";
 
 const STATUS_VARIANT: Record<string, "positive" | "warning" | "danger" | "muted"> = {
   parsed: "positive",
   pending: "warning",
   failed: "danger",
 };
+
+function ResumeHistoryCard() {
+  const { data: history, isLoading } = useResumeHistory();
+  const activateResume = useActivateResume();
+
+  const handleActivate = async (resume: ResumeSummaryOut) => {
+    try {
+      await activateResume.mutateAsync(resume.id);
+      toast.success(
+        `"${resume.original_filename}" is now your active resume. Career Twin, job matches, and missions have been recomputed.`,
+      );
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Couldn't activate this resume version.");
+    }
+  };
+
+  if (isLoading) return <Skeleton className="h-32" />;
+  if (!history || history.length < 2) return null;
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center gap-2">
+        <History className="h-4 w-4 text-brand" aria-hidden="true" />
+        <div>
+          <CardTitle as="h2">Resume history</CardTitle>
+          <CardDescription>
+            Only your active resume drives your Career Twin, job matches, and missions. Older versions stay here,
+            not deleted — reactivate one anytime.
+          </CardDescription>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {history.map((resume) => (
+          <div
+            key={resume.id}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-md)] border border-border p-3"
+          >
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 truncate text-sm font-medium text-foreground">
+                {resume.original_filename}
+                {resume.is_active && (
+                  <Badge variant="positive" className="gap-1 shrink-0">
+                    <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> Active
+                  </Badge>
+                )}
+              </p>
+              <p className="text-xs text-muted">
+                {resume.skill_count} skill(s) detected · uploaded {formatDateTime(resume.uploaded_at)}
+                {!resume.is_active && resume.superseded_at && (
+                  <> · superseded {formatDateTime(resume.superseded_at)}</>
+                )}
+              </p>
+            </div>
+            {!resume.is_active && resume.parsing_status === "parsed" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleActivate(resume)}
+                disabled={activateResume.isPending}
+              >
+                Make active
+              </Button>
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
 
 function ResumeBody() {
   const { data: resume, isLoading, isError, error, refetch } = useResume();
@@ -29,7 +100,7 @@ function ResumeBody() {
     if (!file) return;
     try {
       await uploadResume.mutateAsync(file);
-      toast.success("Resume uploaded and parsed.");
+      toast.success("Resume uploaded and parsed — it's now your active resume. Career Twin and job matches have been recomputed.");
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Couldn't upload resume.");
     }
@@ -38,7 +109,7 @@ function ResumeBody() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Resume</h1>
+        <h1 className="text-h1 text-foreground">Resume</h1>
         <p className="mt-1 text-sm text-muted">Upload a PDF, DOCX, or text resume to extract skill evidence.</p>
       </div>
 
@@ -90,10 +161,21 @@ function ResumeBody() {
         )
       ) : resume ? (
         <>
-          <Card>
+          <Card variant="glow-brand">
             <CardHeader className="flex-row items-center justify-between gap-2">
               <div>
-                <CardTitle as="h2">{resume.original_filename}</CardTitle>
+                <CardTitle as="h2" className="flex items-center gap-2">
+                  {resume.original_filename}
+                  {resume.is_active ? (
+                    <Badge variant="positive" className="gap-1">
+                      <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> Active resume
+                    </Badge>
+                  ) : (
+                    <Badge variant="warning" className="gap-1">
+                      <Clock className="h-3 w-3" aria-hidden="true" /> Superseded
+                    </Badge>
+                  )}
+                </CardTitle>
                 <CardDescription>
                   Uploaded {formatDateTime(resume.uploaded_at)} · {(resume.file_size / 1024).toFixed(0)} KB
                 </CardDescription>
@@ -105,7 +187,17 @@ function ResumeBody() {
                 <p className="text-sm text-danger">{resume.parsing_error}</p>
               </CardContent>
             ) : null}
+            {resume.is_active && (
+              <CardContent className="pt-0">
+                <p className="text-xs text-muted">
+                  This is the resume currently driving your Career Twin, job matches, and missions. Skills from any
+                  earlier resume version are excluded until you reactivate it below.
+                </p>
+              </CardContent>
+            )}
           </Card>
+
+          <ResumeHistoryCard />
 
           <Card>
             <CardHeader>
