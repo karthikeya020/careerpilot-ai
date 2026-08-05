@@ -1,27 +1,39 @@
 # Twelve-Minute Extended Demo
 
-For a dedicated deep-dive slot (judge interviews, finalist round). Builds
-on `SEVEN_MINUTE_DEMO.md` with the full student journey, Technical View
-detail, role dashboards, research methodology, security, and business
-value.
+For a dedicated deep-dive slot — judge interviews, finalist round, or a
+technical breakout. Builds on `FINAL_STAGE_SCRIPT.md`'s seven-minute
+backbone and adds: the full evidence pipeline, Technical View detail, all
+six research ablations (not just the headline two), security/accessibility
+posture, all four role dashboards, and business value. Same two-tab setup
+as the seven-minute script (see its "Before you walk on stage").
 
-| Time | Segment | Screen |
-|---|---|---|
-| 0:00-0:30 | Opening | `/competition` step 1 |
-| 0:30-1:30 | Full onboarding → resume → JD flow | `/onboarding`, `/resume`, `/job-description` (use a fresh or reset account to show the true empty→evidence transition) |
-| 1:30-2:30 | Career Twin, Technical View | `/career-twin` + `/competition` step 3 with Technical View toggled on |
-| 2:30-3:30 | GraphRAG root cause, graph badge | `/trust-center`, point out `graph_source` and the relational-fallback path (mention it was verified live by stopping Neo4j mid-session, Phase 2) |
-| 3:30-4:00 | CARE routing table | Walk through the 6 routes conceptually, then show 2-3 real executions with different routes in Trust Center |
-| 4:00-4:30 | Mission + autonomous loop | `/dashboard`, explain Observe→Diagnose→Plan→Teach→Assess→Reflect |
-| 4:30-6:00 | Interview Arena full flow + Replay | `/interview` (pick a mode, record or type an answer) → evaluation → `/interview/[id]/replay` (audio, transcript, timeline, evidence check) |
-| 6:00-7:00 | Experiment Lab, multiple scenarios | `/experiment-lab` — run 3 scenarios, compare all three, explain the `sim-v1` formula briefly (diminishing returns, evidence diversity, historical trend) |
-| 7:00-8:00 | Research Lab, both experiments + calibration | `/research-lab` — run Experiment A and B live, show the calibration reliability bins |
-| 8:00-8:45 | Role dashboards | `/faculty`, `/placement`, `/recruiter` (mention consent-gated visibility), `/admin` |
-| 8:45-9:30 | Responsible AI + security posture | `/responsible-ai`; mention `docs/security/SECURITY_REVIEW.md` findings/fixes (audio upload validation, rate limiting) without reading the whole doc |
-| 9:30-10:15 | Business value | Faculty/placement/recruiter value props from `BUSINESS_VALUE.md` |
-| 10:15-11:30 | Judge Q&A buffer | Use `JUDGE_Q_AND_A.md` for likely questions |
-| 11:30-12:00 | Closing | `/competition` final step |
+Every number is real, pulled from the live app on 2026-08-05 after a
+reset — see `FINAL_STAGE_SCRIPT.md` for the "numbers will drift slightly"
+note, which applies here too.
 
-If time runs short mid-demo, drop to the 7-minute skeleton by cutting the
-role-dashboard and full-onboarding segments first — they're the least
-essential to the core "wow" narrative.
+| Time | Segment | Screen(s) | What you say / do |
+|---|---|---|---|
+| 0:00–0:30 | Opening | Tab A `/competition` step 1 | Same hook as the 7-minute script: "Every career tool gives you a score with no explanation..." |
+| 0:30–1:30 | Evidence pipeline | Tab B `/resume` → `/job-description` | "Before there's a Twin, there's evidence." Show the real parsed resume (`aanya_sharma_resume.docx`, 9 skills detected, status `parsed` — point out this ran through real text extraction, not a mock). Switch to Job Match: 67% coverage against the Backend Engineering Intern posting, 6 skills matched, 3 missing, listed by name — "every gap here is named, not summarized away." *(Optional, higher-risk alternative: register a throwaway account live at `/register` and walk the real empty→evidence transition on `/onboarding`. Only do this if you've rehearsed the exact upload file and timing — it adds ~90s of real risk for a stronger "not staged" proof. Default to the pre-parsed screens above.)* |
+| 1:30–2:30 | Career Twin, Technical View | Tab A steps 2→3, toggle **Technical view** (top-right button) | Same Career Twin narration as the 7-minute script, plus: with Technical View on, point at the formula/policy version badges now visible per component. "`twin-v2`, versioned — if we ever change this formula, every historical score stays attributable to the version that produced it." |
+| 2:30–3:30 | GraphRAG + resilience | Tab A steps 4→5, Technical View still on | Same GraphRAG chain narration. Add: "This graph runs on Neo4j — and in an earlier verification pass we killed the Neo4j container mid-session on purpose. The system didn't crash; it fell back to the identical relational copy of the same dependency data, labeled honestly as a fallback instead of pretending nothing happened." |
+| 3:30–4:00 | CARE routing, Trust Center | Tab A step 6, then Alt+Tab to Tab B → `/trust-center` | Step 6 narration (single specialist, chosen dynamically). In Trust Center's "Recent decisions" list, click through 2–3 entries: "Every one of these has its own route, its own agents, its own confidence and evidence citations — this is the full audit trail behind every score you've seen today." |
+| 4:00–4:30 | Mission + autonomous loop | Tab A step 7 | Same mission narration: "Strengthen FastAPI," generated from the weak evidence. Name the full loop once: "Observe evidence, diagnose the gap, plan a mission, teach, reassess, update the Twin — closed automatically." |
+| 4:30–6:00 | Interview Arena + full Replay | Alt+Tab to Tab B, Interview Replay, scroll through **all four** questions | Don't stop at the technical question this time — show all four: HR (68%, flagged for weak evidence/relevance), Technical (100%, perfect across all six dimensions), Resume-based (76%, "strong evidence" — point at the resume-claim evidence check classification: `supported_by_resume_evidence`), Role-specific (63%, flagged for weak structure). "Four different question types, four different agent combinations, every evaluation grounded — and where an answer was weak, it says exactly why, never just a number." |
+| 6:00–7:00 | Experiment Lab, multiple scenarios | Tab B → Experiment Lab, run 2 scenarios live | Run "20h SQL" and "20h Communication" back to back (change the skill dropdown, click Run scenario each time — both pre-fillable in a few seconds). Compare the two result cards side by side: "Same student, same formula, two different investments — SQL nets about 1.6 points, Communication about 1.5. This is what makes the Experiment Lab useful: an honest, apples-to-apples comparison instead of generic advice." |
+| 7:00–8:00 | Research Lab, all six ablations | Tab B → Research Lab, click **Run all 6 ablations** | Walk through all six cards, not just CARE and graph-vs-vector: (1) CARE adaptive 100% vs. fixed baselines 12.5%/25%; (2)–(3) graph vs. vector retrieval, 100% vs. 50%, same experiment read both ways; (4) Career Twin memory — "this one is disclosed as a real limitation: our memory agent's confidence signal is currently constant, not graded by relevance, and we say so instead of hiding it"; (5) reflection/critic — "only penalizes claims that are confident *and* uncited, verified case by case"; (6) consensus — "penalty grows with disagreement, confirmed across four disagreement levels." Also point at the calibration panel: "104 real evaluation results pooled, Brier score 0.231, and our 80–100% confidence band is measurably overconfident — 94% stated versus 74% actual. We show that gap on purpose; a calibration module that only ever confirms itself isn't measuring anything." |
+| 8:00–8:45 | Role dashboards | Tab B → `/faculty`, `/placement`, `/recruiter`, `/admin` (as the demo student, these show "Access restricted" — narrate over the restriction itself, or if you've pre-provisioned a role account, log in as it) | "The same evidence model scales institutionally. Faculty see cohort skill gaps, aggregate only. Placement sees readiness distribution and program effectiveness. Recruiters see only students who explicitly opt in — never a default-visible pool, never an automated hiring call. Admin sees real service health and CARE analytics, not a mock dashboard." **Honest note to say out loud**: "Our demo database has one real student in it, so if I had a populated account right now these would show real aggregates instead of an empty cohort — the aggregation logic itself is tested and real; we just haven't grown the seed data to a multi-student cohort for this stage." |
+| 8:45–9:30 | Responsible AI + security posture | Tab A step 12 | Same never-evaluates list narration. Add: "We ran a real security review this week — cross-user access control, rate limiting, upload validation — and a real accessibility audit with axe-core that found and fixed five classes of issue, plus a dependency vulnerability scan. All three are documented with exact findings in our repo, not just claimed." |
+| 9:30–10:15 | Business value | (no screen — direct address) | One sentence per audience: "For students: one system that remembers their evidence instead of re-explaining themselves every session. For universities: defensible, evidence-based cohort reporting instead of a vendor's opaque score. For recruiters: opt-in evidence summaries with zero algorithmic-hiring-discrimination exposure, because the system structurally cannot make a hiring call." |
+| 10:15–11:30 | Judge Q&A buffer | — | Use this window for questions if judges have been holding them — see `JUDGE_Q_AND_A.md`. If none, use the Institutional Scale step (Tab A step 13) as a fallback beat. |
+| 11:30–12:00 | Closing | Tab A step 14 | Same closing line as the 7-minute script: "Past. Present. Simulated future... Your career, continuously evolving." |
+
+## If time runs short mid-demo
+
+Drop segments in this order (least to most costly to the core narrative):
+role dashboards (8:00) → business value (9:30) → full 4-question Replay
+walk (shrink to just the technical question) → multi-scenario Experiment
+Lab (run only one) → security/accessibility mention (compress to one
+sentence). Never cut the GraphRAG chain or the six-ablation research
+proof — those are what separate this from a generic project in a judge's
+mind.
