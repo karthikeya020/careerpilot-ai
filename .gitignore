@@ -19,4 +19,5 @@ var/
 *.egg-info/
 .tsbuildinfo
 tsconfig.tsbuildinfo
-.claude/settings.local.json
+.claude/
+CLAUDE.md
