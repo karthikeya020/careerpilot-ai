@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AssessmentPage from "@/app/assessment/page";
-import type { AssessmentDomainOut, AttemptProgressOut } from "@/types/api";
+import type { ActivityDayOut, AssessmentAnalyticsOut, AssessmentDomainOut, AttemptProgressOut } from "@/types/api";
 
 const { getMock, postMock } = vi.hoisted(() => ({
   getMock: vi.fn(),
@@ -37,8 +37,42 @@ vi.mock("sonner", () => ({
 }));
 
 const DOMAINS: AssessmentDomainOut[] = [
-  { id: "d1", slug: "sql", name: "SQL", description: "Relational database querying." },
+  {
+    id: "d1",
+    slug: "sql",
+    name: "SQL",
+    description: "Relational database querying.",
+    question_count: 13,
+    recommended: false,
+    matched_skills: [],
+  },
 ];
+
+const RECOMMENDED_DOMAINS: AssessmentDomainOut[] = [
+  {
+    id: "d2",
+    slug: "java",
+    name: "Java",
+    description: "Core language, collections, exceptions, memory.",
+    question_count: 15,
+    recommended: true,
+    matched_skills: ["Java"],
+  },
+  ...DOMAINS,
+];
+
+const ACTIVITY: ActivityDayOut[] = [];
+const ANALYTICS: AssessmentAnalyticsOut = {
+  total_answered: 0,
+  total_correct: 0,
+  overall_accuracy: null,
+  accuracy_by_domain: [],
+  accuracy_by_difficulty: [],
+  score_trend: [],
+  current_streak_days: 0,
+  longest_streak_days: 0,
+  active_day_count: 0,
+};
 
 const MULTIPLE_CHOICE_PROGRESS: AttemptProgressOut = {
   attempt_id: "attempt-1",
@@ -52,9 +86,38 @@ const MULTIPLE_CHOICE_PROGRESS: AttemptProgressOut = {
       { id: "b", text: "The table name" },
     ],
     difficulty: 1,
+    difficulty_band: "easy",
     concept_name: "Relational Model",
   },
   is_complete: false,
+  domain_exhausted: false,
+  answered_in_domain: 0,
+  total_in_domain: 13,
+};
+
+const ANSWERED_PROGRESS: AttemptProgressOut = {
+  attempt_id: "attempt-1",
+  response: {
+    id: "r1",
+    question_id: "q1",
+    is_correct: true,
+    score: 1,
+    ai_evaluated: false,
+    explanation: "A primary key uniquely identifies each row in a table.",
+  },
+  next_question: {
+    id: "q2",
+    question_type: "multiple_choice",
+    prompt: "What does GROUP BY do?",
+    options: [{ id: "a", text: "Collapses rows sharing a value" }],
+    difficulty: 2,
+    difficulty_band: "easy",
+    concept_name: "Grouping",
+  },
+  is_complete: false,
+  domain_exhausted: false,
+  answered_in_domain: 1,
+  total_in_domain: 13,
 };
 
 const COMPLETE_PROGRESS: AttemptProgressOut = {
@@ -62,7 +125,20 @@ const COMPLETE_PROGRESS: AttemptProgressOut = {
   response: null,
   next_question: null,
   is_complete: true,
+  domain_exhausted: false,
+  answered_in_domain: 2,
+  total_in_domain: 13,
 };
+
+function mockHomeEndpoints(domains: AssessmentDomainOut[] = DOMAINS) {
+  getMock.mockImplementation((url: string) => {
+    if (url === "/assessments/domains") return Promise.resolve(domains);
+    if (url.startsWith("/assessments/activity-calendar?year=")) return Promise.resolve(ACTIVITY);
+    if (url === "/assessments/analytics") return Promise.resolve(ANALYTICS);
+    if (url.startsWith("/assessments/activity-calendar/")) return Promise.resolve([]);
+    return Promise.resolve(null);
+  });
+}
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -79,40 +155,49 @@ beforeEach(() => {
 });
 
 describe("AssessmentPage", () => {
-  it("lists available assessment domains and starts an attempt", async () => {
-    getMock.mockResolvedValueOnce(DOMAINS);
+  it("lists available assessment topics and starts an attempt", async () => {
+    mockHomeEndpoints();
     postMock.mockResolvedValueOnce(MULTIPLE_CHOICE_PROGRESS);
     const user = userEvent.setup();
     renderPage();
 
     expect(await screen.findByText("SQL")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /start assessment/i }));
+    await user.click(screen.getByRole("button", { name: /start practicing/i }));
 
     await waitFor(() => expect(postMock).toHaveBeenCalledWith("/assessments/attempts", { domain_slug: "sql" }));
     expect(await screen.findByText(/uniquely identifies a row/i)).toBeInTheDocument();
     expect(screen.getByText("Relational Model")).toBeInTheDocument();
+    expect(screen.getByText("Easy")).toBeInTheDocument();
+  });
+
+  it("shows a 'Recommended for you' section only for resume-matched topics", async () => {
+    mockHomeEndpoints(RECOMMENDED_DOMAINS);
+    renderPage();
+
+    expect(await screen.findByText(/recommended for you/i)).toBeInTheDocument();
+    expect(screen.getByText(/recommended from your resume/i)).toBeInTheDocument();
   });
 
   it("labels itself as an educational prototype, not a psychometric evaluation", async () => {
-    getMock.mockResolvedValueOnce(DOMAINS);
+    mockHomeEndpoints();
     postMock.mockResolvedValueOnce(MULTIPLE_CHOICE_PROGRESS);
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole("button", { name: /start assessment/i }));
+    await user.click(await screen.findByRole("button", { name: /start practicing/i }));
     expect(await screen.findByText(/not a psychometric evaluation/i)).toBeInTheDocument();
   });
 
-  it("submits a multiple-choice answer with the selected option id", async () => {
-    getMock.mockResolvedValueOnce(DOMAINS);
+  it("submits a multiple-choice answer, reveals the explanation, then advances on continue", async () => {
+    mockHomeEndpoints();
     postMock.mockResolvedValueOnce(MULTIPLE_CHOICE_PROGRESS);
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole("button", { name: /start assessment/i }));
+    await user.click(await screen.findByRole("button", { name: /start practicing/i }));
     await screen.findByText(/uniquely identifies a row/i);
 
-    postMock.mockResolvedValueOnce(COMPLETE_PROGRESS);
+    postMock.mockResolvedValueOnce(ANSWERED_PROGRESS);
     await user.click(screen.getByLabelText("The primary key"));
     await user.click(screen.getByRole("button", { name: /submit answer/i }));
 
@@ -120,18 +205,27 @@ describe("AssessmentPage", () => {
       expect(postMock).toHaveBeenCalledWith("/assessments/attempts/attempt-1/responses", {
         question_id: "q1",
         response_payload: { selected_option_ids: ["a"] },
-        time_spent_seconds: undefined,
+        time_spent_seconds: expect.any(Number),
       }),
     );
+
+    // Explanation reveal must show before the next question -- this is the
+    // actual learning payoff, not just an instant pass-through.
+    expect(await screen.findByText("Correct!")).toBeInTheDocument();
+    expect(screen.getByText(/uniquely identifies each row/i)).toBeInTheDocument();
+    expect(screen.queryByText(/what does group by do/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /next question/i }));
+    expect(await screen.findByText(/what does group by do/i)).toBeInTheDocument();
   });
 
   it("shows a completion state once the attempt finishes, without exposing an evidence-of-hiring claim", async () => {
-    getMock.mockResolvedValueOnce(DOMAINS);
+    mockHomeEndpoints();
     postMock.mockResolvedValueOnce(COMPLETE_PROGRESS);
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole("button", { name: /start assessment/i }));
+    await user.click(await screen.findByRole("button", { name: /start practicing/i }));
 
     expect(await screen.findByText("Assessment complete")).toBeInTheDocument();
     expect(screen.getByText(/Career Twin has been updated/i)).toBeInTheDocument();
@@ -140,12 +234,12 @@ describe("AssessmentPage", () => {
   });
 
   it("disables the submit button until an answer is chosen", async () => {
-    getMock.mockResolvedValueOnce(DOMAINS);
+    mockHomeEndpoints();
     postMock.mockResolvedValueOnce(MULTIPLE_CHOICE_PROGRESS);
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole("button", { name: /start assessment/i }));
+    await user.click(await screen.findByRole("button", { name: /start practicing/i }));
     await screen.findByText(/uniquely identifies a row/i);
 
     expect(screen.getByRole("button", { name: /submit answer/i })).toBeDisabled();

@@ -39,3 +39,31 @@ export function useSubmitOnboarding() {
     },
   });
 }
+
+export interface ProfileDetailsInput {
+  full_name?: string;
+  date_of_birth?: string | null;
+  college_year?: string | null;
+  branch?: string | null;
+  github_username?: string | null;
+}
+
+export function useUpdateProfileDetails() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ProfileDetailsInput) => api.patch<StudentProfileOut>("/students/me", input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["student-profile"] });
+    },
+  });
+}
+
+export function useSetCameraConsent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) => api.put<void>("/students/me/camera-consent", { enabled }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["student-profile"] });
+    },
+  });
+}

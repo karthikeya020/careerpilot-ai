@@ -14,6 +14,7 @@ from typing import ClassVar
 from pydantic import Field
 
 from app.agents.base import Agent, AgentInput, AgentOutput
+from app.agents.confidence import multi_score_confidence
 from app.ai.registry import get_chat_provider
 from app.ai.schemas import ChatMessage, StructuredChatRequest
 
@@ -100,7 +101,11 @@ class HRAgent(Agent[HRInterviewInput, HRInterviewOutput]):
         )
         result = provider.complete_structured(request)
         parsed = result.parsed
-        confidence = 0.55 if result.is_fallback else 0.85
+        confidence = multi_score_confidence(
+            [parsed["relevance_score"], parsed["structure_score"], parsed["evidence_score"]],
+            keyword_count=len(_significant_words(agent_input.question_prompt)),
+            is_fallback=result.is_fallback,
+        )
         return HRInterviewOutput(
             confidence=confidence,
             evidence_ids=[],

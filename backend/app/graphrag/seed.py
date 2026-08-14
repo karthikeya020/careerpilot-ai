@@ -15,10 +15,16 @@ from app.models.resource import Resource
 from app.models.skill import Skill
 
 # Illustrative role -> required skill-name facts, matching the demo's target
-# role and docs/04_KNOWLEDGE_GRAPH.md's "Data Analyst" example.
+# role and docs/04_KNOWLEDGE_GRAPH.md's "Data Analyst" example. Also the
+# curated role set behind the Career Twin's multi-role alignment view
+# (app/career_twin/multi_role.py) -- deliberately a handful of common,
+# recognizable roles rather than an exhaustive taxonomy.
 JOB_ROLE_REQUIRED_SKILLS = {
-    "Data Analyst": ["SQL", "Python"],
+    "Data Analyst": ["SQL", "Python", "Data Analysis", "Pandas"],
     "Backend Engineering Intern": ["SQL", "Python", "FastAPI", "PostgreSQL"],
+    "Software Engineer": ["Data Structures", "Algorithms", "System Design", "Python", "Git"],
+    "Frontend Engineer": ["JavaScript", "React", "HTML", "CSS", "TypeScript"],
+    "Product Manager": ["Communication", "Project Management", "Data Analysis", "Agile/Scrum"],
 }
 
 

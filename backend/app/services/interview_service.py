@@ -40,6 +40,7 @@ from app.agents.base import AgentOutput
 from app.agents.communication_agent import CommunicationAgent, CommunicationInput
 from app.agents.consensus_agent import ConsensusAgent, ConsensusInput, ConsensusVote
 from app.agents.critic_agent import CriticAgent, CriticClaim, CriticInput
+from app.agents.follow_up_agent import FollowUpAgent, FollowUpInput
 from app.agents.hr_agent import HRAgent, HRInterviewInput
 from app.agents.jd_alignment_agent import JDAlignmentAgent, JDAlignmentInput
 from app.agents.memory_agent import MemoryAgent, MemoryInput
@@ -54,12 +55,17 @@ from app.models.assessment import Concept
 from app.models.base import utcnow
 from app.models.care import AgentRun
 from app.models.interview import (
+    INTERVIEW_DIFFICULTY_EASY,
+    INTERVIEW_DIFFICULTY_HARD,
+    INTERVIEW_DIFFICULTY_MEDIUM,
     INTERVIEW_MODE_COMPANY_CONTEXT,
+    INTERVIEW_MODE_DSA,
     INTERVIEW_MODE_HR,
     INTERVIEW_MODE_RESUME,
     INTERVIEW_MODE_ROLE_SPECIFIC,
     INTERVIEW_MODE_TECHNICAL,
     INTERVIEW_STATUS_COMPLETED,
+    TRANSCRIPT_SOURCE_BROWSER_STT,
     TRANSCRIPT_SOURCE_TYPED,
     TRANSCRIPT_SOURCE_UNAVAILABLE,
     InterviewAnswer,
@@ -78,59 +84,429 @@ _TASK_TYPE = "interview_evaluation"
 _MIN_WORDS_FOR_CONFIDENT_ANSWER = 12
 _ALLOWED_AUDIO_MIME_PREFIXES = ("audio/", "video/webm")  # some browsers report webm audio as a video/webm container
 
-# (prompt, expected_keywords, concept_slug|None, concept_domain|None)
-_TECHNICAL_BANK = [
-    (
-        "Explain the difference between an INNER JOIN and a LEFT JOIN, and give an example of when you'd use each.",
-        ["inner join", "left join", "match", "unmatched", "null"],
-        "inner_join",
-        "sql",
-    ),
-    (
-        "What does GROUP BY do, and how does it interact with aggregate functions like COUNT or SUM?",
-        ["group", "aggregate", "count", "sum", "collapse"],
-        "group_by",
-        "sql",
-    ),
-    (
-        "What is a Python list comprehension, and when would you prefer it over a for loop?",
-        ["list comprehension", "iterable", "concise", "loop"],
-        "list_comprehension",
-        "python",
-    ),
-]
+# Every bank below is keyed by difficulty ("easy"/"medium"/"hard") so a round
+# can draw exactly 2 of each (see _ROUND_TIERS / _generate_questions) --
+# real, commonly-asked interview questions, written directly as generic
+# interview-prep-style content (not sourced from any specific site).
+#
+# Technical/DSA entries: (prompt, expected_keywords, concept_slug|None, model_answer_summary).
+# concept_slug links to the seeded SQL/Python knowledge graph
+# (app/seed/assessment_taxonomy.py) when one exists, so the answer can attach
+# real SkillEvidence to the concept it probes; None for general-CS questions
+# with no matching concept node (same "no linkage" pattern the HR/Resume
+# banks already use for concept_id).
+#
+# model_answer_summary is the post-round-report reference outline -- never
+# shown to the student during the live round (see InterviewQuestionOut vs
+# InterviewReplayQuestionOut in app/schemas/interview.py).
+_TECHNICAL_BANK: dict[str, list[tuple[str, list[str], str | None, str]]] = {
+    "easy": [
+        (
+            "What does it mean for data to be organized in a relational model, and what role does a primary key play?",
+            ["table", "row", "column", "primary key", "unique"],
+            "relational_model",
+            "A table is a set of rows/columns; a primary key uniquely identifies each row so other tables can reference it reliably.",
+        ),
+        (
+            "Explain how a foreign key creates a relationship between two tables, with an example.",
+            ["foreign key", "primary key", "reference", "relationship"],
+            "table_relationships",
+            "A foreign key column in one table stores another table's primary key value, linking a row (e.g. an order) to the row it belongs to (e.g. a customer).",
+        ),
+        (
+            "What is a SQL join, and why would you need one instead of querying a single table?",
+            ["join", "combine", "related", "tables"],
+            "joins",
+            "A join combines rows from two or more tables based on a related column, needed whenever the data you want spans more than one table.",
+        ),
+        (
+            "Walk me through Python's core built-in data types and which ones are mutable versus immutable.",
+            ["mutable", "immutable", "list", "tuple", "dict"],
+            "data_types",
+            "Lists/dicts/sets are mutable (can change in place); tuples/strings/numbers/frozensets are immutable, which matters for hashability and accidental shared-state bugs.",
+        ),
+        (
+            "How would you safely look up a key in a Python dictionary that might not exist, without raising an error?",
+            ["get", "key", "default", "keyerror", "dict"],
+            "dict_operations",
+            "Use dict.get(key, default) (or 'key in dict' first) instead of dict[key], which raises a KeyError if the key is absent.",
+        ),
+        (
+            "How do positional, keyword, and default arguments differ in a Python function definition?",
+            ["positional", "keyword", "default", "argument", "parameter"],
+            "functions",
+            "Positional args are matched by order, keyword args by name, and default args supply a value when the caller omits that argument.",
+        ),
+    ],
+    "medium": [
+        (
+            "Explain the difference between an INNER JOIN and a LEFT JOIN, and give an example of when you'd use each.",
+            ["inner join", "left join", "match", "unmatched", "null"],
+            "inner_join",
+            "INNER JOIN keeps only matching rows on both sides; LEFT JOIN keeps every row from the left table and fills unmatched right-side columns with null -- use LEFT JOIN when you need the left rows even without a match.",
+        ),
+        (
+            "Explain what a LEFT OUTER JOIN returns that an INNER JOIN would leave out, and give an example use case.",
+            ["left join", "outer join", "unmatched", "null", "inner join"],
+            "outer_join",
+            "It also returns left-table rows with no matching right-table row (nulls on the right) -- e.g. listing every customer including ones with zero orders.",
+        ),
+        (
+            "What does GROUP BY do, and how does it interact with aggregate functions like COUNT or SUM?",
+            ["group", "aggregate", "count", "sum", "collapse"],
+            "group_by",
+            "GROUP BY collapses rows sharing a value into one group per value, and aggregate functions then compute one summary number (count/sum/avg) per group.",
+        ),
+        (
+            "What's the difference between filtering with WHERE and filtering with HAVING, and when would you need HAVING?",
+            ["where", "having", "filter", "aggregate", "group"],
+            "where_vs_having",
+            "WHERE filters individual rows before grouping; HAVING filters groups after aggregation -- you need HAVING to filter on an aggregate value like COUNT(*) > 5.",
+        ),
+        (
+            "How does Python's try/except/finally structure work, and when would you specifically need finally?",
+            ["try", "except", "finally", "exception", "error"],
+            "exceptions",
+            "try runs code that might fail, except catches a specific exception type, and finally always runs (success or failure) -- needed for cleanup like closing a file or connection.",
+        ),
+        (
+            "What is a Python list comprehension, and when would you prefer it over a for loop?",
+            ["list comprehension", "iterable", "concise", "loop"],
+            "list_comprehension",
+            "A concise expression that builds a list from an iterable in one line; prefer it for simple, readable transforms/filters, not for logic complex enough to hurt readability.",
+        ),
+    ],
+    "hard": [
+        (
+            "What is a database index, and what tradeoff do you accept when you add one to a frequently-queried column?",
+            ["index", "lookup", "write", "tradeoff", "performance"],
+            "indexes",
+            "An index is an auxiliary structure that speeds up lookups on a column at the cost of extra storage and slower writes, since the index must be updated on every insert/update/delete.",
+        ),
+        (
+            "What is database normalization, and what problem does it actually solve?",
+            ["normalization", "redundancy", "update anomaly", "duplicate"],
+            "normalization",
+            "Organizing tables to remove redundant data, so an update only has to happen in one place -- it prevents update/insert/delete anomalies caused by the same fact being stored in multiple rows.",
+        ),
+        (
+            "What is a subquery, and describe a scenario where you'd use one inside a WHERE clause versus using a JOIN instead.",
+            ["subquery", "nested", "inner query", "where"],
+            "subqueries",
+            "A query nested inside another; useful in WHERE when you need a computed set of values to filter against (e.g. IDs above an average), though an equivalent JOIN is often more efficient when you also need columns from both tables.",
+        ),
+        (
+            "Explain the difference between a process and a thread, and why that distinction matters for concurrent programs.",
+            ["process", "thread", "memory", "concurrent", "isolated"],
+            None,
+            "A process has its own isolated memory space; threads within a process share memory -- sharing makes threads lighter-weight but introduces race conditions that isolated processes don't have.",
+        ),
+        (
+            "Explain the ACID properties of a database transaction, and give a real scenario where losing one of them would cause a visible bug.",
+            ["atomicity", "consistency", "isolation", "durability", "transaction"],
+            None,
+            "Atomicity (all-or-nothing), Consistency (valid state to valid state), Isolation (concurrent transactions don't see each other's half-done work), Durability (committed data survives a crash) -- e.g. losing atomicity in a funds transfer could debit one account without crediting the other.",
+        ),
+    ],
+}
 
-_HR_BANK = [
-    "Tell me about a time you had to work with a difficult team member. How did you handle it?",
-    "Describe a project where you had to meet a tight deadline. What was your approach?",
-    "Tell me about a time you made a mistake at work or in a project. What did you learn?",
-]
+_DSA_BANK: dict[str, list[tuple[str, list[str], str | None, str]]] = {
+    "easy": [
+        (
+            "What is Big-O notation, and why do we use it to talk about an algorithm's efficiency instead of just timing it?",
+            ["big-o", "time complexity", "growth", "input size"],
+            None,
+            "Big-O describes how an algorithm's work grows as input size grows, independent of hardware/language speed -- a timed benchmark only tells you about one input size on one machine.",
+        ),
+        (
+            "What's the difference between an array and a linked list, and when would you pick one over the other?",
+            ["array", "linked list", "contiguous", "pointer", "insertion", "random access"],
+            None,
+            "Arrays store elements contiguously with O(1) random access but costly insert/delete in the middle; linked lists give O(1) insert/delete at a known position but only O(n) sequential access.",
+        ),
+        (
+            "How does a hash map achieve close to O(1) average lookup time?",
+            ["hash", "bucket", "index", "collision", "average"],
+            None,
+            "A hash function maps a key to a bucket/index directly, so lookup doesn't scan other entries -- average case is O(1); worst case degrades if many keys collide into the same bucket.",
+        ),
+        (
+            "Walk me through how binary search works, and what has to be true about the input for it to work at all.",
+            ["binary search", "sorted", "divide", "half", "log n"],
+            None,
+            "Repeatedly compare the target to the middle element and discard the half it can't be in, halving the search space each step (O(log n)) -- the input must already be sorted.",
+        ),
+    ],
+    "medium": [
+        (
+            "Explain the two-pointer technique and describe a problem it's well suited to solve.",
+            ["two pointer", "sorted", "left", "right", "in place"],
+            None,
+            "Two pointers moving from either end (or at different speeds) of a sorted structure, avoiding a nested loop -- e.g. finding a pair that sums to a target in a sorted array in O(n) instead of O(n^2).",
+        ),
+        (
+            "How would you find whether a linked list contains a cycle, without using extra memory proportional to its length?",
+            ["cycle", "fast", "slow", "floyd", "pointer"],
+            None,
+            "Floyd's fast/slow pointer technique: advance one pointer by 1 and another by 2 each step -- if they ever meet, there's a cycle; this uses O(1) extra space versus O(n) for a visited-set.",
+        ),
+        (
+            "Explain how a stack and a queue differ, and describe a real problem where you'd reach for a stack.",
+            ["stack", "queue", "lifo", "fifo", "push", "pop"],
+            None,
+            "A stack is last-in-first-out, a queue is first-in-first-out; stacks fit problems like matching parentheses, undo history, or DFS traversal where you need to backtrack to the most recent state.",
+        ),
+        (
+            "What is recursion, and what two things does every correct recursive function need to have?",
+            ["recursion", "base case", "recursive case", "call stack"],
+            None,
+            "A function that calls itself on a smaller version of the problem -- it needs a base case that stops the recursion and a recursive case that provably shrinks toward that base case.",
+        ),
+    ],
+    "hard": [
+        (
+            "What is dynamic programming, and how do you recognize a problem that can be solved with it?",
+            ["dynamic programming", "overlapping subproblems", "optimal substructure", "memoization"],
+            None,
+            "DP solves a problem by caching (memoizing) solutions to overlapping subproblems instead of recomputing them -- a strong signal is when a brute-force recursive solution re-solves the exact same subproblem many times.",
+        ),
+        (
+            "Explain the difference between depth-first and breadth-first traversal of a graph, and when you'd choose each.",
+            ["depth-first", "breadth-first", "graph", "queue", "stack", "shortest path"],
+            None,
+            "DFS explores as far as possible down one path before backtracking (stack-based); BFS explores level by level (queue-based) -- BFS is the right choice whenever you need the shortest path in an unweighted graph.",
+        ),
+        (
+            "How would you detect whether a binary tree is balanced, and why does balance matter for performance?",
+            ["balanced", "height", "binary tree", "log n", "skewed"],
+            None,
+            "Compute each subtree's height bottom-up and check the left/right height difference at every node is within a bound -- an unbalanced (skewed) tree degrades operations from O(log n) toward O(n).",
+        ),
+        (
+            "Explain time-space tradeoffs using a specific example, like caching or memoization.",
+            ["time", "space", "tradeoff", "memoization", "cache"],
+            None,
+            "Memoization trades extra memory (storing past results) for less recomputation time -- a good answer names a concrete case (e.g. Fibonacci, or an API response cache) and states what's actually being traded.",
+        ),
+    ],
+}
 
-_RESUME_BANK = [
-    "Walk me through a project on your resume that you're most proud of. What was your specific contribution?",
-    "Tell me about a technical challenge you faced in one of the projects listed on your resume, and how you resolved it.",
-]
+# HR/Resume/Role/Company entries: (prompt[, model_answer_summary]) --
+# STAR-format behavioral classics, written directly as generic
+# interview-prep content.
+_HR_BANK: dict[str, list[tuple[str, str]]] = {
+    "easy": [
+        (
+            "Tell me about a time you had to learn a new skill or technology quickly to finish a project.",
+            "A strong answer names the specific gap, how you closed it (docs, a mentor, trial and error), and the concrete outcome once you applied it.",
+        ),
+        (
+            "Tell me about a time you took initiative on something that wasn't explicitly asked of you.",
+            "Names the gap you noticed, what you did about it unprompted, and the result -- the key signal is that nobody assigned it to you.",
+        ),
+        (
+            "Describe a time you received critical feedback. How did you respond, and what changed afterward?",
+            "Should show you took the feedback seriously (not defensively), describe a specific change you made, and ideally a follow-up result showing it worked.",
+        ),
+        (
+            "Tell me about a time you had to explain a technical concept to someone non-technical.",
+            "Should describe adapting the explanation to the audience (analogy, avoiding jargon) and confirming they actually understood, not just that you talked.",
+        ),
+    ],
+    "medium": [
+        (
+            "Tell me about a time you had to work with a difficult team member. How did you handle it?",
+            "Focuses on the specific behavior (not personality judgments), the concrete steps you took to address it directly, and the resulting working relationship or outcome.",
+        ),
+        (
+            "Describe a project where you had to meet a tight deadline. What was your approach?",
+            "Names how you prioritized/scoped under the constraint (what got cut or parallelized) and whether you hit the deadline -- not just that you 'worked hard.'",
+        ),
+        (
+            "Describe a situation where you disagreed with a teammate's technical decision. How did you resolve it?",
+            "Shows you raised the disagreement directly and respectfully with reasoning/evidence, and states how it was actually resolved (compromise, data, or deferring with a stated reason).",
+        ),
+        (
+            "Tell me about a time you had to prioritize between multiple competing tasks. How did you decide?",
+            "Names the actual criteria used (impact, deadline, dependency) rather than 'I just did everything,' and the outcome of that prioritization.",
+        ),
+    ],
+    "hard": [
+        (
+            "Tell me about a time you made a mistake at work or in a project. What did you learn?",
+            "Owns the mistake specifically (not vaguely), states its real impact, and names a concrete behavior change that followed -- deflecting blame is the main failure mode here.",
+        ),
+        (
+            "Describe a project where the requirements were unclear or kept changing. How did you handle the ambiguity?",
+            "Shows a concrete strategy for reducing ambiguity (clarifying questions, a small spike, checking in early) rather than just 'I adapted' with no specifics.",
+        ),
+        (
+            "Describe a time you had to balance competing priorities from different stakeholders.",
+            "Names the actual conflicting asks, how you communicated trade-offs to each side, and how it was ultimately resolved -- vague answers skip the actual negotiation.",
+        ),
+        (
+            "Describe a situation where a project didn't go as planned. What did you do?",
+            "Should include the specific failure point, the corrective action taken in the moment, and what changed afterward so it wouldn't repeat.",
+        ),
+        (
+            "Tell me about a time you had to make a difficult decision with incomplete information and real consequences.",
+            "Should state what information was missing, how you reduced risk anyway (a small test, a fallback plan), and own the outcome whether or not it went well.",
+        ),
+    ],
+}
 
-_ROLE_SPECIFIC_BANK = [
-    "Why are you interested in the {role} role, and what makes you a strong fit for it?",
-    "What do you think are the most important skills for a successful {role}, and how do you measure up?",
-]
+_RESUME_BANK: dict[str, list[tuple[str, str]]] = {
+    "easy": [
+        (
+            "Walk me through a project on your resume that you're most proud of. What was your specific contribution?",
+            "Names the project, separates your individual contribution from the team's, and states a concrete, ideally measurable outcome.",
+        ),
+        (
+            "Pick one bullet point from your resume and expand on it — what did you actually do, day to day?",
+            "Should go beyond the bullet's wording into specific tasks/decisions -- a resume line restated verbatim is a weak signal.",
+        ),
+        (
+            "Of everything on your resume, what's the accomplishment you'd want an interviewer to dig into the most, and why?",
+            "Should pick something with real depth to defend (a hard decision, a measurable result) rather than the safest/vaguest line.",
+        ),
+    ],
+    "medium": [
+        (
+            "Tell me about a technical challenge you faced in one of the projects listed on your resume, and how you resolved it.",
+            "Names the specific technical obstacle, the approach tried, and the resolution -- 'it was hard but I figured it out' with no specifics is a weak answer.",
+        ),
+        (
+            "Which project on your resume best demonstrates your problem-solving ability, and why?",
+            "Should walk through the actual reasoning process used to solve the problem, not just restate that the project existed.",
+        ),
+        (
+            "How did the project on your resume evolve from your original plan to what you actually shipped?",
+            "Should name a real deviation (a scope cut, a pivot) and the reasoning behind it -- 'it went exactly as planned' is rarely true and reads as unreflective.",
+        ),
+    ],
+    "hard": [
+        (
+            "Tell me about a time a project on your resume didn't go as planned. What would you do differently?",
+            "Owns a specific shortfall (not just external blame) and states a concrete change to approach, not a generic 'communicate better.'",
+        ),
+        (
+            "If you had another month on the project you're most proud of, what would you change or add, and why?",
+            "Should name a specific, reasoned improvement (not 'polish it more') that shows genuine reflection on the project's real limitations.",
+        ),
+        (
+            "Which claim on your resume would be hardest for you to back up in detail if I asked follow-up questions right now — and can you back it up anyway?",
+            "Should honestly identify a real weak spot and then demonstrate they can still explain it credibly at a reasonable depth.",
+        ),
+    ],
+}
 
-_COMPANY_CONTEXT_BANK = [
-    "What do you know about {company}'s work, and why do you want to interview for this role specifically?",
-    "How would your background contribute to the team at {company} on day one?",
-]
+_ROLE_SPECIFIC_BANK: dict[str, list[tuple[str, str]]] = {
+    "easy": [
+        (
+            "Why are you interested in the {role} role, and what makes you a strong fit for it?",
+            "Should connect specific skills/experience to specific responsibilities of the role, not a generic 'I'm passionate about tech.'",
+        ),
+        (
+            "What do you think are the most important skills for a successful {role}?",
+            "Should name concrete, role-relevant skills (not a generic list) and briefly justify why each matters for that specific role.",
+        ),
+        (
+            "What part of the {role} role are you most excited to learn more about?",
+            "Should show genuine, specific interest tied to something real about the role, not a rehearsed platitude.",
+        ),
+    ],
+    "medium": [
+        (
+            "Where do you see the biggest gap between your current skills and what a {role} needs — and what's your plan to close it?",
+            "Should honestly name a real gap (not a humble-brag) and a concrete, active plan to close it (a course, a project, practice).",
+        ),
+        (
+            "Describe how you'd approach your first 90 days in a {role} position.",
+            "Should show a realistic sequence: ramping up/learning first, then contributing -- not claiming to 'hit the ground running' with no learning phase.",
+        ),
+        (
+            "What's a skill you're actively building right now to become a stronger {role}?",
+            "Should name something specific and currently in progress, with evidence they're actually working on it, not just intending to.",
+        ),
+    ],
+    "hard": [
+        (
+            "What part of being a {role} do you think is hardest to learn from a course versus from hands-on experience?",
+            "Should show a mature understanding of the role's real-world judgment calls that no course teaches -- ambiguity, trade-offs, stakeholder friction.",
+        ),
+        (
+            "Tell me about a decision a {role} might face where there's no clearly right answer, and how you'd reason through it.",
+            "Should name a real, specific trade-off scenario for that role and walk through a concrete reasoning process, not just state a conclusion.",
+        ),
+        (
+            "If a {role} on your team disagreed with your technical approach, how would you handle it?",
+            "Should show willingness to engage with the disagreement directly (evidence, discussion) rather than either capitulating immediately or dismissing it.",
+        ),
+    ],
+}
+
+_COMPANY_CONTEXT_BANK: dict[str, list[tuple[str, str]]] = {
+    "easy": [
+        (
+            "What do you know about {company}'s work, and why do you want to interview for this role specifically?",
+            "Should show real, specific research about {company} (not generic praise) connected to a genuine reason for interest in this particular role.",
+        ),
+        (
+            "What excites you most about {company} compared to other places you could apply?",
+            "Should name something specific and differentiating about {company}, not something true of any company in the industry.",
+        ),
+        (
+            "What questions do you have about how {company} approaches this kind of work?",
+            "Should ask a specific, informed question that shows real research, not a generic 'what's the culture like.'",
+        ),
+    ],
+    "medium": [
+        (
+            "How would your background contribute to the team at {company} on day one?",
+            "Should connect specific, real skills/experience to what the {company} team likely needs, not a generic capability list.",
+        ),
+        (
+            "If you joined {company} tomorrow, what would you want to learn first about how the team operates?",
+            "Should name specific, practically useful things to learn early (codebase, process, key stakeholders), not vague onboarding platitudes.",
+        ),
+        (
+            "What do you think {company} might be doing differently from its competitors, based on what you've researched?",
+            "Should show genuine research into {company}'s actual approach/positioning, with a specific, defensible comparison.",
+        ),
+    ],
+    "hard": [
+        (
+            "What's a risk or challenge you think {company} might be facing in its space, and how would you want to help address it?",
+            "Should show informed, realistic awareness of a genuine challenge (not a generic industry risk) and a thoughtful, humble framing of how they'd contribute.",
+        ),
+        (
+            "If you disagreed with a technical or product decision at {company}, how would you raise that concern?",
+            "Should describe a constructive, evidence-based approach to raising disagreement, appropriate to a new team member (not overstepping, not staying silent).",
+        ),
+        (
+            "What would make you turn down an offer from {company} even if the role itself looked good on paper?",
+            "Should show genuine, specific values/priorities (not a rehearsed non-answer) -- a thoughtful answer here signals self-awareness, not disloyalty.",
+        ),
+    ],
+}
 
 _BETTER_ANSWER_FRAMEWORKS = {
     INTERVIEW_MODE_TECHNICAL: (
         "State the core concept in one sentence, walk through a concrete example, then note a "
         "trade-off or edge case to show depth."
     ),
+    INTERVIEW_MODE_DSA: (
+        "State the core idea in one sentence, name the time/space complexity, then walk through a "
+        "small concrete example to show you can apply it, not just define it."
+    ),
     "default": (
         "Structure your answer with STAR: briefly set the Situation and Task, describe the specific "
         "Action you took, and close with a measurable Result."
     ),
 }
+
+# Every scripted round is exactly this shape: 2 easy, 2 medium, 2 hard.
+_ROUND_TIERS = ["easy", "easy", "medium", "medium", "hard", "hard"]
 
 
 def _significant_words(text: str) -> set[str]:
@@ -175,12 +551,14 @@ def start_session(
     return session
 
 
-def _make_question(session: InterviewSession, order_index: int, mode: str, prompt: str, **kwargs) -> InterviewQuestion:
+def _make_question(session: InterviewSession, order_index: int, mode: str, prompt: str, difficulty: str, **kwargs) -> InterviewQuestion:
     return InterviewQuestion(
         session_id=session.id,
         order_index=order_index,
         mode=mode,
         prompt=prompt,
+        difficulty=difficulty,
+        model_answer_summary=kwargs.get("model_answer_summary", ""),
         question_source=kwargs.get("question_source", "bank"),
         concept_id=kwargs.get("concept_id"),
         expected_keywords=kwargs.get("expected_keywords", []),
@@ -198,37 +576,89 @@ def _generate_questions(
     role_title = target_role.title if target_role else "this role"
     company = session.company_name or (job_description.company if job_description else None) or "this company"
 
-    def _tech_q(order: int) -> InterviewQuestion:
-        prompt, keywords, concept_slug, _domain_slug = rng.choice(_TECHNICAL_BANK)
-        concept = db.scalar(select(Concept).where(Concept.slug == concept_slug))
+    # Shuffle each difficulty tier of each bank once per session (deterministic
+    # on session.id) and hand questions out from the front, per tier -- every
+    # round draws exactly 2 easy / 2 medium / 2 hard (_ROUND_TIERS) with no
+    # repeated prompt within a session, without needing every tier pre-sized
+    # to the max per-tier draw count.
+    def _shuffle_tiers(bank: dict[str, list]) -> dict[str, list]:
+        return {tier: rng.sample(items, len(items)) for tier, items in bank.items()}
+
+    tech_pool = _shuffle_tiers(_TECHNICAL_BANK)
+    dsa_pool = _shuffle_tiers(_DSA_BANK)
+    hr_pool = _shuffle_tiers(_HR_BANK)
+    resume_pool = _shuffle_tiers(_RESUME_BANK)
+    role_pool = _shuffle_tiers(_ROLE_SPECIFIC_BANK)
+    company_pool = _shuffle_tiers(_COMPANY_CONTEXT_BANK)
+    draw_counts: dict[tuple[str, str], int] = {}
+
+    def _draw(pools: dict[str, list], key: str, tier: str):
+        tier_pool = pools[tier]
+        count_key = (key, tier)
+        idx = draw_counts.get(count_key, 0)
+        item = tier_pool[idx % len(tier_pool)]
+        draw_counts[count_key] = idx + 1
+        return item
+
+    def _concept_technical_q(mode: str, pool: dict[str, list], key: str):
+        def builder(order: int, tier: str) -> InterviewQuestion:
+            prompt, keywords, concept_slug, model_answer = _draw(pool, key, tier)
+            concept = db.scalar(select(Concept).where(Concept.slug == concept_slug)) if concept_slug else None
+            return _make_question(
+                session, order, mode, prompt, tier,
+                expected_keywords=keywords, concept_id=concept.id if concept else None,
+                model_answer_summary=model_answer,
+            )
+        return builder
+
+    def _hr_q(order: int, tier: str) -> InterviewQuestion:
+        prompt, model_answer = _draw(hr_pool, "hr", tier)
+        return _make_question(session, order, INTERVIEW_MODE_HR, prompt, tier, model_answer_summary=model_answer)
+
+    def _resume_q(order: int, tier: str) -> InterviewQuestion:
+        prompt, model_answer = _draw(resume_pool, "resume", tier)
         return _make_question(
-            session, order, INTERVIEW_MODE_TECHNICAL, prompt,
-            expected_keywords=keywords, concept_id=concept.id if concept else None,
+            session, order, INTERVIEW_MODE_RESUME, prompt, tier,
+            question_source="resume", model_answer_summary=model_answer,
         )
 
-    def _hr_q(order: int) -> InterviewQuestion:
-        return _make_question(session, order, INTERVIEW_MODE_HR, rng.choice(_HR_BANK))
+    def _role_q(order: int, tier: str) -> InterviewQuestion:
+        prompt, model_answer = _draw(role_pool, "role", tier)
+        return _make_question(
+            session, order, INTERVIEW_MODE_ROLE_SPECIFIC, prompt.format(role=role_title), tier,
+            question_source="job_description", model_answer_summary=model_answer.format(role=role_title),
+        )
 
-    def _resume_q(order: int) -> InterviewQuestion:
-        return _make_question(session, order, INTERVIEW_MODE_RESUME, rng.choice(_RESUME_BANK), question_source="resume")
+    def _company_q(order: int, tier: str) -> InterviewQuestion:
+        prompt, model_answer = _draw(company_pool, "company", tier)
+        return _make_question(
+            session, order, INTERVIEW_MODE_COMPANY_CONTEXT, prompt.format(company=company), tier,
+            question_source="job_description", model_answer_summary=model_answer.format(company=company),
+        )
 
-    def _role_q(order: int) -> InterviewQuestion:
-        prompt = rng.choice(_ROLE_SPECIFIC_BANK).format(role=role_title)
-        return _make_question(session, order, INTERVIEW_MODE_ROLE_SPECIFIC, prompt, question_source="job_description")
+    _tech_q = _concept_technical_q(INTERVIEW_MODE_TECHNICAL, tech_pool, "tech")
+    _dsa_q = _concept_technical_q(INTERVIEW_MODE_DSA, dsa_pool, "dsa")
 
-    def _company_q(order: int) -> InterviewQuestion:
-        prompt = rng.choice(_COMPANY_CONTEXT_BANK).format(company=company)
-        return _make_question(session, order, INTERVIEW_MODE_COMPANY_CONTEXT, prompt, question_source="job_description")
+    def _round(*builders_by_tier) -> list:
+        """Zips a per-tier sequence of builder functions with _ROUND_TIERS,
+        so e.g. _round(_hr_q, _tech_q) alternates HR/Technical across the
+        fixed 2 easy/2 medium/2 hard shape (used by "mixed")."""
+        cycle = list(builders_by_tier)
+        return [(lambda order, t=tier, b=cycle[i % len(cycle)]: b(order, t)) for i, tier in enumerate(_ROUND_TIERS)]
 
     builders = {
-        INTERVIEW_MODE_TECHNICAL: [_tech_q, _tech_q],
-        INTERVIEW_MODE_HR: [_hr_q, _hr_q],
-        INTERVIEW_MODE_RESUME: [_resume_q, _hr_q],
-        INTERVIEW_MODE_ROLE_SPECIFIC: [_role_q, _hr_q],
-        INTERVIEW_MODE_COMPANY_CONTEXT: [_company_q, _role_q],
-        "mixed": [_hr_q, _tech_q, _resume_q, _role_q if job_description or target_role else _hr_q],
+        INTERVIEW_MODE_TECHNICAL: _round(_tech_q),
+        INTERVIEW_MODE_DSA: _round(_dsa_q),
+        INTERVIEW_MODE_HR: _round(_hr_q),
+        INTERVIEW_MODE_RESUME: _round(_resume_q),
+        INTERVIEW_MODE_ROLE_SPECIFIC: _round(_role_q),
+        INTERVIEW_MODE_COMPANY_CONTEXT: _round(_company_q),
+        # Alternates HR/Technical per tier (easy#1 HR, easy#2 Technical,
+        # medium#1 HR, medium#2 Technical, hard#1 HR, hard#2 Technical) --
+        # still exactly 6, still a real blend.
+        "mixed": _round(_hr_q, _tech_q),
     }
-    question_builders = builders.get(session.mode, [_hr_q, _hr_q])
+    question_builders = builders.get(session.mode, _round(_hr_q))
     for order, builder in enumerate(question_builders):
         db.add(builder(order))
 
@@ -279,6 +709,7 @@ def submit_answer(
     audio_mime_type: str | None = None,
     audio_duration_seconds: float | None = None,
     typed_answer_text: str | None = None,
+    used_browser_transcription: bool = False,
 ) -> InterviewAnswer:
     if question.answer is not None:
         raise ConflictError("This question has already been answered.")
@@ -296,7 +727,10 @@ def submit_answer(
 
     if not transcript.strip() and typed_answer_text and typed_answer_text.strip():
         transcript = typed_answer_text.strip()
-        transcript_source = TRANSCRIPT_SOURCE_TYPED
+        # The client's Web Speech API produced this text live while the student
+        # spoke -- it arrives over the same typed_answer_text form field as a
+        # hand-typed fallback, but it isn't one, so label it honestly.
+        transcript_source = TRANSCRIPT_SOURCE_BROWSER_STT if used_browser_transcription else TRANSCRIPT_SOURCE_TYPED
 
     if not transcript.strip():
         raise UnprocessableError(
@@ -326,7 +760,12 @@ class _ModeContext:
 
 
 def evaluate_answer(
-    db: Session, student_profile: StudentProfile, session: InterviewSession, question: InterviewQuestion, answer: InterviewAnswer
+    db: Session,
+    student_profile: StudentProfile,
+    session: InterviewSession,
+    question: InterviewQuestion,
+    answer: InterviewAnswer,
+    camera_on_ratio: float | None = None,
 ) -> InterviewEvaluation:
     resume = get_latest_resume(db, student_profile.id)
     ctx = _ModeContext(
@@ -340,6 +779,7 @@ def evaluate_answer(
             transcript=answer.transcript,
             audio_duration_seconds=float(answer.audio_duration_seconds) if answer.audio_duration_seconds else None,
             check_star_structure=question.mode in (INTERVIEW_MODE_HR, INTERVIEW_MODE_RESUME),
+            camera_on_ratio=camera_on_ratio,
         )
     )
     communication_record = _record("communication", CommunicationAgent.prompt_version, {}, communication_output, comm_latency)
@@ -392,7 +832,7 @@ def evaluate_answer(
         evidence_checks: list[dict] = []
         confidences: list[float] = []
 
-        if question.mode == INTERVIEW_MODE_TECHNICAL:
+        if question.mode in (INTERVIEW_MODE_TECHNICAL, INTERVIEW_MODE_DSA):
             tech_agent = TechnicalAgent()
             concept_name = question.concept.name if question.concept else ""
             tech_out, latency = tech_agent.safe_run(
@@ -465,7 +905,7 @@ def evaluate_answer(
 
         votes.append(ConsensusVote(agent_name="primary_specialist", confidence=state["primary_confidence"]))
 
-        if question.mode == INTERVIEW_MODE_TECHNICAL:
+        if question.mode in (INTERVIEW_MODE_TECHNICAL, INTERVIEW_MODE_DSA):
             hr_agent = HRAgent()
             hr_out, hr_latency = hr_agent.safe_run(HRInterviewInput(question_prompt=question.prompt, transcript=answer.transcript))
             agent_runs.append(_record(hr_agent.name, hr_agent.prompt_version, {}, hr_out, hr_latency))
@@ -601,12 +1041,77 @@ def evaluate_answer(
     return evaluation
 
 
+_MAX_FOLLOW_UPS_PER_SESSION = 2
+
+
+def maybe_insert_follow_up(
+    db: Session,
+    session: InterviewSession,
+    question: InterviewQuestion,
+    answer: InterviewAnswer,
+    evaluation: InterviewEvaluation,
+) -> InterviewQuestion | None:
+    """Grounds the "real conversation" upgrade: after grading, ask the
+    FollowUpAgent whether the answer left a genuine gap, and if so insert one
+    follow-up question right after the current one. Never chains past one
+    level (a follow-up is never itself followed up) and caps the total
+    follow-ups per session so a session can't run away in length."""
+    if question.is_follow_up:
+        return None
+
+    existing_follow_ups = sum(1 for q in session.questions if q.is_follow_up)
+    if existing_follow_ups >= _MAX_FOLLOW_UPS_PER_SESSION:
+        return None
+
+    follow_up_agent = FollowUpAgent()
+    # Not run through run_care_task/CareExecution -- this is a lightweight,
+    # post-grading decision rather than a routed evaluation, so there's no
+    # CareExecution row for an AgentRun to attach to (that FK is required).
+    out, _latency = follow_up_agent.safe_run(
+        FollowUpInput(
+            question_prompt=question.prompt,
+            transcript=answer.transcript,
+            mode=question.mode,
+            expected_keywords=question.expected_keywords,
+            dimension_scores=evaluation.dimension_scores,
+        )
+    )
+    if not out.should_follow_up or not out.follow_up_prompt.strip():
+        return None
+
+    for later in session.questions:
+        if later.order_index > question.order_index:
+            later.order_index += 1
+
+    follow_up_question = InterviewQuestion(
+        session_id=session.id,
+        order_index=question.order_index + 1,
+        mode=question.mode,
+        prompt=out.follow_up_prompt,
+        # Inherits the parent's tier rather than the column default -- a
+        # follow-up probing a gap in an easy question is still an easy-tier
+        # question, and the round summary's difficulty breakdown depends on
+        # this being real (Constitution rule 1).
+        difficulty=question.difficulty,
+        question_source="follow_up",
+        concept_id=question.concept_id,
+        expected_keywords=[],
+        is_follow_up=True,
+        parent_question_id=question.id,
+        follow_up_rationale=out.gap_description,
+    )
+    db.add(follow_up_question)
+    db.commit()
+    db.refresh(session)
+    return follow_up_question
+
+
 def _initial_evidence_state(question: InterviewQuestion, answer: InterviewAnswer, ctx: _ModeContext) -> tuple[bool, int, float]:
     word_count = len(answer.transcript.split())
     too_thin = word_count < _MIN_WORDS_FOR_CONFIDENT_ANSWER
 
     off_topic = False
-    if question.mode == INTERVIEW_MODE_TECHNICAL and question.expected_keywords:
+    if question.mode in (INTERVIEW_MODE_TECHNICAL, INTERVIEW_MODE_DSA) and question.expected_keywords:
         transcript_lower = answer.transcript.lower()
         off_topic = not any(k.lower() in transcript_lower for k in question.expected_keywords)
     elif question.mode in (INTERVIEW_MODE_HR, INTERVIEW_MODE_RESUME):
@@ -621,7 +1126,7 @@ def _initial_evidence_state(question: InterviewQuestion, answer: InterviewAnswer
 
     evidence_conflict = too_thin or off_topic or missing_context
 
-    if question.mode == INTERVIEW_MODE_TECHNICAL:
+    if question.mode in (INTERVIEW_MODE_TECHNICAL, INTERVIEW_MODE_DSA):
         evidence_count, evidence_quality = 2, 0.7
     elif question.mode == INTERVIEW_MODE_HR:
         evidence_count, evidence_quality = 2, 0.6
@@ -762,3 +1267,101 @@ def complete_session(db: Session, student_profile: StudentProfile, session: Inte
     if evaluations:
         recompute_twin(db, student_profile, reason=f"Completed a {session.mode} mock interview ({len(evaluations)} question(s)).")
     return session
+
+
+def _avg(values: list[float]) -> float | None:
+    return round(sum(values) / len(values), 4) if values else None
+
+
+def build_round_summary(session: InterviewSession) -> dict:
+    """Every number here traces to a stored InterviewEvaluation row -- no new
+    LLM call, so nothing in the post-round report can be an invented figure
+    (Constitution rule 1). narrative_summary is a deterministic template over
+    these same numbers, not a model-generated paraphrase."""
+    scored: list[tuple[InterviewQuestion, InterviewEvaluation]] = [
+        (q, q.answer.evaluation) for q in session.questions if q.answer is not None and q.answer.evaluation is not None
+    ]
+    scripted_count = sum(1 for q in session.questions if not q.is_follow_up)
+    follow_up_count = sum(1 for q in session.questions if q.is_follow_up)
+
+    if not scored:
+        return {
+            "overall_score": float(session.overall_score) if session.overall_score is not None else None,
+            "overall_confidence": float(session.overall_confidence) if session.overall_confidence is not None else None,
+            "scripted_question_count": scripted_count,
+            "follow_up_count": follow_up_count,
+            "difficulty_breakdown": [],
+            "dimension_averages": {},
+            "communication_rollup": {},
+            "narrative_summary": "No questions have been answered yet.",
+        }
+
+    overall_score = _avg([float(e.overall_score) for _, e in scored])
+    overall_confidence = _avg([float(e.confidence) for _, e in scored])
+
+    difficulty_breakdown = []
+    for tier in (INTERVIEW_DIFFICULTY_EASY, INTERVIEW_DIFFICULTY_MEDIUM, INTERVIEW_DIFFICULTY_HARD):
+        tier_scores = [float(e.overall_score) for q, e in scored if q.difficulty == tier]
+        difficulty_breakdown.append(
+            {"difficulty": tier, "average_score": _avg(tier_scores), "question_count": len(tier_scores)}
+        )
+
+    dim_totals: dict[str, list[float]] = {}
+    for _, e in scored:
+        for dim, score in e.dimension_scores.items():
+            dim_totals.setdefault(dim, []).append(float(score))
+    dimension_averages = {dim: _avg(vals) for dim, vals in dim_totals.items()}
+
+    filler_ratios, clarity_scores, paces, camera_ratios = [], [], [], []
+    for _, e in scored:
+        metrics = e.communication_metrics or {}
+        if metrics.get("filler_ratio") is not None:
+            filler_ratios.append(metrics["filler_ratio"])
+        if metrics.get("clarity_score") is not None:
+            clarity_scores.append(metrics["clarity_score"])
+        if metrics.get("speaking_rate_wpm") is not None:
+            paces.append(metrics["speaking_rate_wpm"])
+        if metrics.get("camera_on_ratio") is not None:
+            camera_ratios.append(metrics["camera_on_ratio"])
+
+    communication_rollup = {
+        "average_filler_ratio": _avg(filler_ratios),
+        "average_clarity_score": _avg(clarity_scores),
+        "average_speaking_rate_wpm": _avg(paces),
+        "average_camera_on_ratio": _avg(camera_ratios),
+    }
+
+    narrative_parts = [
+        f"You answered {len(scored)} question(s) ({scripted_count} scripted"
+        + (f", {follow_up_count} follow-up" if follow_up_count else "")
+        + f"). Average score {overall_score:.0%}."
+    ]
+    scored_tiers = [b for b in difficulty_breakdown if b["average_score"] is not None]
+    if len(scored_tiers) >= 2:
+        best = max(scored_tiers, key=lambda b: b["average_score"])
+        worst = min(scored_tiers, key=lambda b: b["average_score"])
+        if best["difficulty"] != worst["difficulty"]:
+            narrative_parts.append(
+                f"Strongest on {best['difficulty']} questions ({best['average_score']:.0%}), "
+                f"weakest on {worst['difficulty']} ({worst['average_score']:.0%})."
+            )
+    delivery_bits = []
+    if communication_rollup["average_filler_ratio"] is not None:
+        delivery_bits.append(f"{communication_rollup['average_filler_ratio']:.0%} filler words")
+    if communication_rollup["average_speaking_rate_wpm"] is not None:
+        delivery_bits.append(f"{communication_rollup['average_speaking_rate_wpm']:.0f} wpm")
+    if communication_rollup["average_camera_on_ratio"] is not None:
+        delivery_bits.append(f"camera on {communication_rollup['average_camera_on_ratio']:.0%} of the time")
+    if delivery_bits:
+        narrative_parts.append("Delivery: " + ", ".join(delivery_bits) + ".")
+
+    return {
+        "overall_score": overall_score,
+        "overall_confidence": overall_confidence,
+        "scripted_question_count": scripted_count,
+        "follow_up_count": follow_up_count,
+        "difficulty_breakdown": difficulty_breakdown,
+        "dimension_averages": dimension_averages,
+        "communication_rollup": communication_rollup,
+        "narrative_summary": " ".join(narrative_parts),
+    }

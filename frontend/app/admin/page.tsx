@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Cpu, XCircle } from "lucide-react";
+import { Activity, CheckCircle2, Cpu, Database, Network, Server, XCircle } from "lucide-react";
 import { Protected } from "@/components/layout/protected";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,16 +9,31 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAdminDashboard } from "@/hooks/use-role-dashboards";
 import { ApiError } from "@/lib/api-client";
-import { formatDateTime, formatPercent, titleCase } from "@/lib/utils";
+import { cn, formatDateTime, formatPercent, titleCase } from "@/lib/utils";
 
-function HealthBadge({ label, ok }: { label: string; ok: boolean }) {
+const SERVICE_ICONS: Record<string, typeof Database> = {
+  Database: Database,
+  Redis: Server,
+  Neo4j: Network,
+};
+
+function HealthCard({ label, ok }: { label: string; ok: boolean }) {
+  const Icon = SERVICE_ICONS[label] ?? Database;
   return (
-    <div className="flex items-center gap-2 rounded-[var(--radius-md)] border border-border p-3">
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-[var(--radius-md)] border p-3",
+        ok ? "border-positive/30 bg-positive/5" : "border-danger/30 bg-danger/5",
+      )}
+    >
+      <span className={cn("flex h-9 w-9 items-center justify-center rounded-full", ok ? "bg-positive/15 text-positive" : "bg-danger/15 text-danger")}>
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </span>
+      <div className="flex-1">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        <p className="text-[11px] text-muted">{ok ? "healthy" : "unavailable"}</p>
+      </div>
       {ok ? <CheckCircle2 className="h-4 w-4 text-positive" aria-hidden="true" /> : <XCircle className="h-4 w-4 text-danger" aria-hidden="true" />}
-      <span className="text-sm text-foreground">{label}</span>
-      <Badge variant={ok ? "positive" : "danger"} className="ml-auto">
-        {ok ? "healthy" : "unavailable"}
-      </Badge>
     </div>
   );
 }
@@ -41,21 +56,24 @@ function AdminBody() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold text-foreground">
-          <Cpu className="h-5 w-5 text-brand" aria-hidden="true" />
-          Administrator Dashboard
-        </h1>
-        <p className="mt-1 text-sm text-muted">Service health, user counts, and CARE execution analytics.</p>
+      <div className="animate-fade-up relative overflow-hidden rounded-[var(--radius-xl)] border border-border bg-mesh p-8 md:p-10">
+        <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-gradient-radial-brand blur-3xl opacity-70" aria-hidden="true" />
+        <div className="relative flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] bg-gradient-brand shadow-[var(--shadow-glow-brand)]">
+            <Cpu className="h-5 w-5 text-brand-foreground" aria-hidden="true" />
+          </span>
+          <h1 className="text-h1 text-foreground">Administrator Dashboard</h1>
+        </div>
+        <p className="relative mt-3 max-w-2xl text-sm text-muted">Service health, user counts, and CARE execution analytics.</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <HealthBadge label="Database" ok={data.service_health.database} />
-        <HealthBadge label="Redis" ok={data.service_health.redis} />
-        <HealthBadge label="Neo4j" ok={data.service_health.neo4j} />
+        <HealthCard label="Database" ok={data.service_health.database} />
+        <HealthCard label="Redis" ok={data.service_health.redis} />
+        <HealthCard label="Neo4j" ok={data.service_health.neo4j} />
       </div>
 
-      <Card>
+      <Card className="animate-fade-up delay-1">
         <CardHeader>
           <CardTitle as="h2">Users by role ({data.total_users} total)</CardTitle>
         </CardHeader>
@@ -68,28 +86,30 @@ function AdminBody() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="animate-fade-up delay-2">
         <CardHeader>
-          <CardTitle as="h2">CARE execution analytics</CardTitle>
+          <CardTitle as="h2" className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-brand" aria-hidden="true" /> CARE execution analytics
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4 text-center sm:grid-cols-4">
             <div>
-              <p className="text-lg font-semibold text-foreground">{data.care_execution_stats.total_executions}</p>
+              <p className="text-metric text-foreground">{data.care_execution_stats.total_executions}</p>
               <p className="text-[11px] text-muted">Total executions</p>
             </div>
             <div>
-              <p className="text-lg font-semibold text-foreground">{formatPercent(data.care_execution_stats.average_confidence)}</p>
+              <p className="text-metric text-foreground">{formatPercent(data.care_execution_stats.average_confidence)}</p>
               <p className="text-[11px] text-muted">Avg confidence</p>
             </div>
             <div>
-              <p className="text-lg font-semibold text-foreground">
+              <p className="text-metric text-foreground">
                 {data.care_execution_stats.average_latency_ms !== null ? `${data.care_execution_stats.average_latency_ms.toFixed(0)}ms` : "—"}
               </p>
               <p className="text-[11px] text-muted">Avg latency</p>
             </div>
             <div>
-              <p className="text-lg font-semibold text-foreground">{formatPercent(data.care_execution_stats.human_review_rate)}</p>
+              <p className="text-metric text-foreground">{formatPercent(data.care_execution_stats.human_review_rate)}</p>
               <p className="text-[11px] text-muted">Human-review rate</p>
             </div>
           </div>
@@ -103,7 +123,7 @@ function AdminBody() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="animate-fade-up delay-3">
         <CardHeader>
           <CardTitle as="h2">Recent audit events (7 days)</CardTitle>
         </CardHeader>
@@ -113,7 +133,7 @@ function AdminBody() {
           ) : (
             <ul className="space-y-1">
               {data.recent_audit_events.map((e) => (
-                <li key={e.id} className="flex justify-between text-xs">
+                <li key={e.id} className="flex justify-between rounded-[var(--radius-sm)] px-2 py-1 text-xs hover:bg-surface-muted">
                   <span className="text-foreground">{titleCase(e.event_type)}</span>
                   <span className="text-muted">{formatDateTime(e.created_at)}</span>
                 </li>

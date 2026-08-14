@@ -18,6 +18,7 @@ from app.models.interview import (
     InterviewQuestion,
     InterviewSession,
 )
+from app.models.job_catalog import CompanyJobListing, JobListingRequirement, TrackedJob
 from app.models.job_description import JobDescription, JobRequirement
 from app.models.mission import LearningMission
 from app.models.resource import Resource
@@ -36,6 +37,7 @@ __all__ = [
     "CareExecution",
     "CareerGoal",
     "CareerTwinSnapshot",
+    "CompanyJobListing",
     "Concept",
     "ConceptDependency",
     "DecisionTrace",
@@ -48,6 +50,7 @@ __all__ = [
     "InterviewQuestion",
     "InterviewSession",
     "JobDescription",
+    "JobListingRequirement",
     "JobRequirement",
     "LearningMission",
     "Question",
@@ -65,6 +68,7 @@ __all__ = [
     "StudentProfile",
     "StudentSkill",
     "TargetRole",
+    "TrackedJob",
     "User",
     "UserRole",
 ]

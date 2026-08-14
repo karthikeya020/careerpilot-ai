@@ -78,6 +78,87 @@ def test_upload_rejects_empty_file(client) -> None:
     assert response.status_code == 422
 
 
+def test_analysis_endpoint_before_upload_reports_no_resume(client) -> None:
+    headers = _register_and_auth(client, "analysis-empty@example.com")
+    response = client.get("/api/v1/resumes/me/analysis", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["has_resume"] is False
+
+
+def test_analysis_endpoint_after_upload_returns_bullets_consistency_and_parseability(client) -> None:
+    headers = _register_and_auth(client, "analysis-full@example.com")
+    document = Document()
+    document.add_paragraph("SUMMARY")
+    document.add_paragraph("Aspiring backend engineer with a passion for distributed systems.")
+    document.add_paragraph("SKILLS")
+    document.add_paragraph("Python, Kubernetes")
+    document.add_paragraph("PROJECTS")
+    document.add_paragraph("- Built a REST API using Python, cutting response latency by 40%.")
+    document.add_paragraph("EDUCATION")
+    document.add_paragraph("B.Tech Computer Science, 2026")
+    buffer = io.BytesIO()
+    document.save(buffer)
+
+    upload = client.post(
+        "/api/v1/resumes", headers=headers, files={"file": ("resume.docx", buffer.getvalue(), DOCX_CONTENT_TYPE)}
+    )
+    assert upload.status_code == 201
+
+    response = client.get("/api/v1/resumes/me/analysis", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["has_resume"] is True
+    assert len(body["bullet_grades"]) >= 1
+    assert body["bullet_grades"][0]["strength"] == "strong"
+    flagged = {f["skill_name"] for f in body["self_consistency_flags"]}
+    assert "Kubernetes" in flagged
+    assert body["parseability"]["score"] > 0.5
+
+
+def test_recruiter_card_self_view_reflects_own_evidence(client) -> None:
+    headers = _register_and_auth(client, "recruiter-card-self@example.com")
+    empty_card = client.get("/api/v1/resumes/me/recruiter-card", headers=headers)
+    assert empty_card.status_code == 200
+    assert empty_card.json()["has_resume"] is False
+
+    docx_bytes = _build_docx()
+    upload = client.post(
+        "/api/v1/resumes", headers=headers, files={"file": ("resume.docx", docx_bytes, DOCX_CONTENT_TYPE)}
+    )
+    assert upload.status_code == 201
+
+    card = client.get("/api/v1/resumes/me/recruiter-card", headers=headers)
+    assert card.status_code == 200
+    body = card.json()
+    assert body["has_resume"] is True
+    assert 0.0 <= body["trust_score"] <= 1.0
+    assert "not a hiring recommendation" in body["disclaimer"].lower()
+
+
+def test_rewrite_suggestions_never_fabricate_evidence_for_missing_skills(client) -> None:
+    headers = _register_and_auth(client, "rewrite-suggestions@example.com")
+    docx_bytes = _build_docx()
+    upload = client.post(
+        "/api/v1/resumes", headers=headers, files={"file": ("resume.docx", docx_bytes, DOCX_CONTENT_TYPE)}
+    )
+    assert upload.status_code == 201
+
+    search = client.get("/api/v1/job-catalog/search?company=Google", headers=headers)
+    assert search.status_code == 200
+    listing_id = search.json()[0]["listing"]["id"]
+
+    response = client.get(
+        f"/api/v1/resumes/me/rewrite-suggestions?listing_id={listing_id}", headers=headers
+    )
+    assert response.status_code == 200
+    suggestions = response.json()
+    assert isinstance(suggestions, list)
+    for suggestion in suggestions:
+        if not suggestion["has_sufficient_evidence"]:
+            assert suggestion["rewritten_bullet"] is None
+            assert "no existing evidence" in suggestion["note"].lower()
+
+
 def test_get_resume_without_upload_returns_404(client) -> None:
     headers = _register_and_auth(client)
     response = client.get("/api/v1/resumes/me", headers=headers)

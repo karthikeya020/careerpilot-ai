@@ -72,6 +72,11 @@ class ExperimentResult(UUIDPKMixin, Base):
     component_changes: Mapped[list] = mapped_column(JSONBType(), nullable=False)
     assumptions: Mapped[list] = mapped_column(JSONBType(), default=list, nullable=False)
     evidence_used: Mapped[list] = mapped_column(JSONBType(), default=list, nullable=False)
+    # list[{"factor","label","swing"}] -- see app/simulation/engine.py::compute_sensitivity.
+    sensitivity: Mapped[list] = mapped_column(JSONBType(), default=list, nullable=False)
+    # Opportunity-cost callouts (see compute_opportunity_cost_notes) -- never
+    # blank when this plan actually spends hours on an already-strong component.
+    waste_notes: Mapped[list] = mapped_column(JSONBType(), default=list, nullable=False)
     # Deterministic-engine-produced explanation is always present; the
     # provider-backed prose gloss (never the numbers) may replace/augment it.
     explanation: Mapped[str] = mapped_column(Text, nullable=False)

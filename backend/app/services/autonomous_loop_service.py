@@ -104,6 +104,15 @@ def build_root_cause_mission_plan(
         )
 
     def _career_coach_step(factors: RoutingFactors) -> StepOutcome:
+        # Idempotent guard: CARE's loop can reach this route more than once
+        # (e.g. escalate to multi_agent, then land back on single_agent) --
+        # re-running the same synthesis would waste a call and could
+        # overwrite state with a second, redundant result.
+        if "coach_output" in state:
+            output = state["coach_output"]
+            updated = factors.model_copy(update={"agent_confidence": output.confidence})
+            return StepOutcome(factors=updated, output=output.model_dump(), evidence_ids=output.evidence_ids)
+
         graphrag_output = state["graphrag_output"]
         agent = CareerCoachAgent()
         output, latency_ms = agent.safe_run(
@@ -135,6 +144,26 @@ def build_root_cause_mission_plan(
             ],
         )
 
+    def _multi_agent_step(factors: RoutingFactors) -> StepOutcome:
+        # This pipeline has exactly one specialist (CareerCoachAgent) after
+        # retrieval -- there is no second council member to add. Escalating
+        # here just means "the single pass wasn't confident enough"; run (or
+        # reuse) that same specialist rather than raising for a missing
+        # multi-agent route, and mark the escalation attempted so the policy
+        # doesn't loop back into it a second time.
+        outcome = _career_coach_step(factors)
+        updated = outcome.factors.model_copy(update={"multi_agent_attempted": True})
+        return StepOutcome(
+            factors=updated, output=outcome.output, evidence_ids=outcome.evidence_ids, agent_runs=outcome.agent_runs
+        )
+
+    def _critic_step(factors: RoutingFactors) -> StepOutcome:
+        # No second opinion exists to audit against in this simple pipeline;
+        # accept the coach's synthesis as final rather than raising for a
+        # missing critic/reflection route.
+        outcome = _career_coach_step(factors)
+        return StepOutcome(factors=outcome.factors, output=outcome.output, evidence_ids=outcome.evidence_ids)
+
     initial_factors = RoutingFactors(
         task_type=_ROOT_CAUSE_TASK_TYPE,
         task_risk="low",
@@ -149,7 +178,12 @@ def build_root_cause_mission_plan(
         _ROOT_CAUSE_TASK_TYPE,
         request_summary=f"Root-cause analysis for missed question on concept '{concept_name}'.",
         factors=initial_factors,
-        executors={"graphrag_agent": _graphrag_step, "single_agent": _career_coach_step},
+        executors={
+            "graphrag_agent": _graphrag_step,
+            "single_agent": _career_coach_step,
+            "multi_agent": _multi_agent_step,
+            "critic_reflection": _critic_step,
+        },
         input_evidence_ids=[str(weakest_evidence.id)],
     )
 

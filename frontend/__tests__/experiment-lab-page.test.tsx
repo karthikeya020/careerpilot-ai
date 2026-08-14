@@ -70,6 +70,8 @@ const SCENARIO_RESULT: ExperimentScenarioOut = {
     ],
     assumptions: ["Activity-effectiveness weights are fixed heuristic multipliers."],
     evidence_used: ["e1"],
+    sensitivity: [],
+    waste_notes: [],
     explanation: "Technical is estimated to improve by 0.18.",
     disclaimer: "Personalized scenario estimate—not a guaranteed outcome or hiring prediction.",
     created_at: "2026-08-05T00:00:00Z",
@@ -134,5 +136,49 @@ describe("ExperimentLabPage", () => {
     renderPage();
     await screen.findByText("Build a scenario");
     expect(screen.getByText(/Personalized scenario estimate—not a guaranteed outcome or hiring prediction\./)).toBeInTheDocument();
+  });
+
+  it("switches to target mode and solves backwards from a target readiness", async () => {
+    postMock.mockResolvedValueOnce({
+      engine_version: "sim-v1",
+      target_component: "technical_readiness",
+      target_score: 0.8,
+      baseline_score: 0.5,
+      reached_target: true,
+      plan: [
+        { skill_name: "SQL", activity_type: "practice_problems", hours: 20, order_rank: 1, scheduling_reason: null },
+      ],
+      total_hours: 20,
+      weeks_to_complete: 2,
+      assumptions: ["Searched in 2-hour increments across 1 candidate skill(s)."],
+      disclaimer: "Personalized scenario estimate—not a guaranteed outcome or hiring prediction.",
+      calendar: {
+        weeks: [{ week_number: 1, start_date: "2026-08-01", items: [{ skill_name: "SQL", activity_type: "practice_problems", hours: 10 }], total_hours: 10 }],
+        weekly_hours_budget: 10,
+        total_hours: 20,
+        weeks_needed: 2,
+        deadline: null,
+        fits_deadline: null,
+        feasibility_note: null,
+      },
+      marginal_gain_curve: [
+        { hours: 2, marginal_gain: 0.05, cumulative_gain: 0.05 },
+        { hours: 4, marginal_gain: 0.03, cumulative_gain: 0.08 },
+      ],
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("Build a scenario");
+    await user.click(screen.getByRole("button", { name: /what's the cheapest path/i }));
+
+    await screen.findByText(/solve backwards from a target/i);
+    const skillInput = screen.getByPlaceholderText(/e.g. Python, SQL/i);
+    await user.type(skillInput, "SQL");
+    await user.click(screen.getByRole("button", { name: /find the cheapest path/i }));
+
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith("/experiments/target-plan", expect.objectContaining({ candidate_skills: ["SQL"] })));
+    expect(await screen.findByText(/reachable/i)).toBeInTheDocument();
+    expect(screen.getByText(/1\. SQL/)).toBeInTheDocument();
   });
 });

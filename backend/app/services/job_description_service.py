@@ -88,7 +88,7 @@ def create_job_description(
     return job_description
 
 
-def _resume_weight_by_skill(db: Session, student_profile_id: uuid.UUID) -> dict[uuid.UUID, float]:
+def resume_weight_by_skill(db: Session, student_profile_id: uuid.UUID) -> dict[uuid.UUID, float]:
     # Excludes resume-sourced evidence tied to a superseded resume version
     # (app/services/evidence_service.py) -- JD/job matching must always
     # reflect the student's currently active resume, never a replaced one.
@@ -111,7 +111,7 @@ def compute_match(db: Session, student_profile: StudentProfile, job_description:
         for req in job_description.requirements
         if req.requirement_type == REQUIREMENT_SKILL and req.is_required and req.skill_id is not None
     ]
-    weight_by_skill = _resume_weight_by_skill(db, student_profile.id)
+    weight_by_skill = resume_weight_by_skill(db, student_profile.id)
 
     result = MatchResult()
     seen: set[uuid.UUID] = set()

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { THEME_STORAGE_KEY } from "./theme-constants";
 
 type Theme = "light" | "dark";
 
@@ -11,7 +12,7 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-export const THEME_STORAGE_KEY = "careerpilot_theme";
+export { THEME_STORAGE_KEY };
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("dark");

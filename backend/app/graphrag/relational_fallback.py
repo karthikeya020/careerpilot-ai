@@ -72,4 +72,53 @@ def resources_teaching_concept(db: Session, concept_slug: str) -> list[dict]:
     if concept is None:
         return []
     resources = db.scalars(select(Resource).where(Resource.concept_id == concept.id)).all()
-    return [{"id": str(r.id), "title": r.title} for r in resources]
+    return [{"id": str(r.id), "title": r.title, "url": r.url} for r in resources]
+
+
+def all_concepts_graph(db: Session) -> tuple[list[dict], list[dict]]:
+    concepts = db.scalars(select(Concept)).all()
+    nodes = [{"slug": c.slug, "name": c.name, "skill_name": c.skill.name if c.skill else None} for c in concepts]
+    slug_by_id = {c.id: c.slug for c in concepts}
+    deps = db.scalars(select(ConceptDependency)).all()
+    edges = [
+        {"source": slug_by_id[d.concept_id], "target": slug_by_id[d.depends_on_id]}
+        for d in deps
+        if d.concept_id in slug_by_id and d.depends_on_id in slug_by_id
+    ]
+    return nodes, edges
+
+
+def concepts_depending_on(db: Session, slug: str, max_depth: int = 3) -> list[dict]:
+    concept = db.scalar(select(Concept).where(Concept.slug == slug))
+    if concept is None:
+        return []
+
+    result: list[dict] = []
+    seen = {concept.id}
+    frontier = [concept.id]
+    depth = 0
+    while frontier and depth < max_depth:
+        depth += 1
+        deps = db.scalars(select(ConceptDependency).where(ConceptDependency.depends_on_id.in_(frontier))).all()
+        next_frontier = []
+        for dep in deps:
+            if dep.concept_id in seen:
+                continue
+            seen.add(dep.concept_id)
+            dependent_concept = db.get(Concept, dep.concept_id)
+            if dependent_concept:
+                result.append({"slug": dependent_concept.slug, "name": dependent_concept.name, "depth": depth})
+                next_frontier.append(dependent_concept.id)
+        frontier = next_frontier
+    result.sort(key=lambda item: item["depth"])
+    return result
+
+
+def all_job_role_requirements(db: Session) -> list[dict]:
+    from app.graphrag.seed import JOB_ROLE_REQUIRED_SKILLS
+
+    return [
+        {"title": title, "skill_name": skill_name}
+        for title, skill_names in JOB_ROLE_REQUIRED_SKILLS.items()
+        for skill_name in skill_names
+    ]

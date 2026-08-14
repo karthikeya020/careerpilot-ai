@@ -1,7 +1,8 @@
 import uuid
+from datetime import date
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -19,6 +20,10 @@ class StudentProfile(UUIDPKMixin, TimestampMixin, Base):
         GUID(), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
     )
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
+    college_year: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    branch: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    github_username: Mapped[str | None] = mapped_column(String(39), nullable=True)
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     consent_settings: Mapped[dict] = mapped_column(JSONBType(), default=dict, nullable=False)
     primary_target_role_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -31,6 +36,13 @@ class StudentProfile(UUIDPKMixin, TimestampMixin, Base):
         ),
         nullable=True,
     )
+
+    @property
+    def camera_consent(self) -> bool:
+        """Opt-in gate for Interview Arena webcam capture -- checked at
+        session start, never assumed. Mirrors the recruiter_visible
+        consent_settings pattern in role_dashboard_service.py."""
+        return bool(self.consent_settings.get("camera_consent"))
 
     user: Mapped["User"] = relationship(back_populates="student_profile")
     career_goals: Mapped[list["CareerGoal"]] = relationship(

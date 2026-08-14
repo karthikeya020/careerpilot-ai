@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.career_twin.scoring import recompute_twin
 from app.core.config import get_settings
 from app.core.errors import NotFoundError, UnprocessableError
+from app.models.assessment import Concept
 from app.models.audit import AuditEvent
 from app.models.base import utcnow
 from app.models.resume import (
@@ -117,6 +118,14 @@ def process_resume(db: Session, student_profile: StudentProfile, upload: UploadL
                     snippet = _snippet(section.text, term)
                     best_by_skill[skill.id] = (skill, weight, normalized, section.section_type, snippet)
 
+        concept_id_by_skill_id = {
+            c.skill_id: c.id
+            for c in db.scalars(
+                select(Concept).where(Concept.skill_id.in_([s.id for s, *_ in best_by_skill.values()]))
+            ).all()
+            if c.skill_id is not None
+        }
+
         for skill, weight, normalized, section_type, snippet in best_by_skill.values():
             db.add(
                 ResumeSkill(
@@ -131,6 +140,11 @@ def process_resume(db: Session, student_profile: StudentProfile, upload: UploadL
                 SkillEvidence(
                     student_profile_id=student_profile.id,
                     skill_id=skill.id,
+                    # Links this evidence into the knowledge-graph Concept node
+                    # (when the skill maps to one) instead of a flat tag, so
+                    # GraphRAG's depth/mastery reasoning can be applied to
+                    # resume-sourced evidence, not just assessment attempts.
+                    concept_id=concept_id_by_skill_id.get(skill.id),
                     evidence_type=evidence_type,
                     source_object_type="resume",
                     source_object_id=resume.id,

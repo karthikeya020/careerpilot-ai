@@ -49,7 +49,11 @@ const REPLAY: InterviewReplayOut = {
         order_index: 0,
         mode: "resume",
         prompt: "Walk me through a project you're proud of.",
+        difficulty: "easy",
+        model_answer_summary: "Names the project, states your individual contribution, and closes with a measurable outcome.",
         question_source: "resume",
+        is_follow_up: false,
+        follow_up_rationale: null,
       },
       answer: {
         id: "answer-1",
@@ -57,6 +61,7 @@ const REPLAY: InterviewReplayOut = {
         transcript: "I led the backend rewrite project.",
         transcript_source: "typed",
         audio_duration_seconds: null,
+        audio_mime_type: null,
         has_audio: false,
         submitted_at: "2026-08-04T00:01:00Z",
       },
@@ -87,6 +92,7 @@ const REPLAY: InterviewReplayOut = {
           clarity_score: 0.8,
           conciseness_score: 0.5,
           professional_communication_score: 0.6,
+          camera_on_ratio: null,
         },
         timeline_markers: [
           { type: "strong_introduction", label: "Confident, substantive opening.", position_percent: 0 },
@@ -97,6 +103,25 @@ const REPLAY: InterviewReplayOut = {
       },
     },
   ],
+  summary: {
+    overall_score: 0.55,
+    overall_confidence: 0.6,
+    scripted_question_count: 6,
+    follow_up_count: 0,
+    difficulty_breakdown: [
+      { difficulty: "easy", average_score: 0.55, question_count: 1 },
+      { difficulty: "medium", average_score: null, question_count: 0 },
+      { difficulty: "hard", average_score: null, question_count: 0 },
+    ],
+    dimension_averages: { relevance: 0.7, structure: 0.5, evidence: 0.4 },
+    communication_rollup: {
+      average_filler_ratio: 0,
+      average_clarity_score: 0.8,
+      average_speaking_rate_wpm: null,
+      average_camera_on_ratio: null,
+    },
+    narrative_summary: "You answered 1 question(s) (6 scripted). Average score 55%.",
+  },
 };
 
 function renderPage() {
@@ -133,7 +158,7 @@ describe("InterviewReplayPage", () => {
   });
 
   it("shows an empty state when the session has no answered questions", async () => {
-    getMock.mockResolvedValueOnce({ session: REPLAY.session, items: [] });
+    getMock.mockResolvedValueOnce({ session: REPLAY.session, items: [], summary: REPLAY.summary });
     renderPage();
 
     expect(await screen.findByText(/No answered questions/i)).toBeInTheDocument();

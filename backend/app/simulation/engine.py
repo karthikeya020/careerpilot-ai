@@ -104,6 +104,11 @@ class SimulationResult:
     evidence_used: list[str]
     explanation: str
     disclaimer: str = DISCLAIMER
+    # Populated after the fact by compute_sensitivity()/compute_opportunity_cost_notes()
+    # below -- both re-derive from this same result rather than adding a second
+    # numeric source (Constitution rule 1).
+    sensitivity: list["SensitivityFactor"] = field(default_factory=list)
+    waste_notes: list[str] = field(default_factory=list)
 
 
 def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
@@ -197,7 +202,14 @@ def simulate_scenario(
     student_profile: StudentProfile,
     allocations: list[AllocationInput],
     target_role_id: uuid.UUID | None = None,
+    factor_overrides: dict[str, float] | None = None,
 ) -> SimulationResult:
+    """`factor_overrides` multiplicatively scales one of
+    "activity_effectiveness" / "role_factor" / "dependents_bonus" /
+    "historical_multiplier" (default 1.0 = unchanged) -- used only by
+    `compute_sensitivity` below to re-run this same real computation with one
+    input perturbed, never to change the formula itself."""
+    overrides = factor_overrides or {}
     baseline = db.scalar(
         select(CareerTwinSnapshot)
         .where(CareerTwinSnapshot.student_profile_id == student_profile.id)
@@ -241,6 +253,7 @@ def simulate_scenario(
         evidence_used.extend(current_info.get("evidence_ids", []))
 
         effectiveness = ACTIVITY_EFFECTIVENESS.get(allocation.activity_type, DEFAULT_ACTIVITY_EFFECTIVENESS)
+        effectiveness *= overrides.get("activity_effectiveness", 1.0)
         if allocation.activity_type not in ACTIVITY_EFFECTIVENESS:
             assumptions.append(
                 f"Activity type '{allocation.activity_type}' is unrecognized -- used a conservative default effectiveness."
@@ -252,10 +265,11 @@ def simulate_scenario(
 
         role_importance, has_jd = _role_importance(db, student_profile.id, skill)
         used_jd = used_jd or has_jd
-        role_factor = 0.5 + 0.5 * role_importance
+        role_factor = (0.5 + 0.5 * role_importance) * overrides.get("role_factor", 1.0)
 
-        dependents_bonus = _dependents_bonus(db, skill)
+        dependents_bonus = _dependents_bonus(db, skill) * overrides.get("dependents_bonus", 1.0)
         historical_multiplier, has_history = _historical_response_multiplier(db, student_profile.id, component_type)
+        historical_multiplier *= overrides.get("historical_multiplier", 1.0)
         used_history = used_history or has_history
 
         gain = raw_gain * headroom_factor * role_factor * dependents_bonus * historical_multiplier
@@ -344,3 +358,71 @@ def _build_explanation(component_changes: list[ComponentChange], overall_delta: 
         direction = "up" if overall_delta >= 0 else "down"
         summary += f" Overall readiness estimate moves {direction} by {abs(overall_delta):.2f} to {simulated_overall:.2f}."
     return summary
+
+
+# ---------------------------------------------------------------------------
+# Sensitivity analysis: which assumption is this result most fragile to?
+# ---------------------------------------------------------------------------
+
+_SENSITIVITY_PERTURBATION = 0.2  # +/-20%
+_SENSITIVITY_FACTOR_LABELS = {
+    "activity_effectiveness": "assumed activity-effectiveness weight",
+    "role_factor": "assumed target-role importance",
+    "dependents_bonus": "assumed downstream-concept bonus",
+    "historical_multiplier": "assumed personal learning-rate history",
+}
+
+
+@dataclass
+class SensitivityFactor:
+    factor: str
+    label: str
+    swing: float
+
+
+def compute_sensitivity(
+    db: Session,
+    student_profile: StudentProfile,
+    allocations: list[AllocationInput],
+    target_role_id: uuid.UUID | None,
+    baseline: SimulationResult,
+) -> list[SensitivityFactor]:
+    """Re-runs the real simulation with each factor scaled +/-20% in turn
+    (holding the others fixed) and reports which factor moves the overall
+    simulated score the most -- turning the uncertainty band already shown
+    into a stated explanation of what it's most fragile to, not just a
+    wider number."""
+    results: list[SensitivityFactor] = []
+    for factor, label in _SENSITIVITY_FACTOR_LABELS.items():
+        up = simulate_scenario(db, student_profile, allocations, target_role_id, factor_overrides={factor: 1 + _SENSITIVITY_PERTURBATION})
+        down = simulate_scenario(db, student_profile, allocations, target_role_id, factor_overrides={factor: 1 - _SENSITIVITY_PERTURBATION})
+        swing = max(
+            abs(up.simulated_overall_score - baseline.simulated_overall_score),
+            abs(down.simulated_overall_score - baseline.simulated_overall_score),
+        )
+        results.append(SensitivityFactor(factor=factor, label=label, swing=round(swing, 4)))
+    results.sort(key=lambda f: -f.swing)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Opportunity-cost framing: name the waste explicitly.
+# ---------------------------------------------------------------------------
+
+_ALREADY_STRONG_THRESHOLD = 0.80
+
+
+def compute_opportunity_cost_notes(component_changes: list[ComponentChange]) -> list[str]:
+    """Flags a component whose *current* score is already at/above the
+    "strong" bar but still received hours in this plan (delta > 0) --
+    students consistently over-study what they're already good at; this
+    names it explicitly rather than leaving it implicit in the numbers."""
+    notes: list[str] = []
+    for change in component_changes:
+        if change.current_score is not None and change.current_score >= _ALREADY_STRONG_THRESHOLD and change.delta > 0:
+            label = change.component_type.replace("_readiness", "").replace("_", " ")
+            notes.append(
+                f"This plan spends hours improving {label}, which is already at {change.current_score:.0%} "
+                f"confidence -- consider redirecting that time to a weaker component instead."
+            )
+    return notes

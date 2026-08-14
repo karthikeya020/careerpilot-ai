@@ -2,22 +2,22 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, Menu, X } from "lucide-react";
+import { ChevronRight, LogOut, Menu, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import { NAV_LINKS } from "./nav-links";
+import { PageTransitionSweep } from "./page-transition-sweep";
 import { ThemeToggle } from "./theme-toggle";
 
 function BrandMark() {
   return (
-    <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-foreground">
-      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-brand-foreground text-sm font-bold">
-        C
-      </span>
-      <span>CareerPilot</span>
+    <Link href="/dashboard" className="flex items-center gap-2.5 font-semibold text-foreground">
+      <Logo size={32} />
+      <span className="text-[15px] tracking-tight">CareerPilot</span>
     </Link>
   );
 }
@@ -36,14 +36,25 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             aria-current={isActive ? "page" : undefined}
             onClick={onNavigate}
             className={cn(
-              "flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-sm font-medium transition-colors",
+              "group flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-sm font-medium transition-all duration-150",
               isActive
-                ? "bg-brand-soft text-brand"
-                : "text-muted hover:bg-surface-muted hover:text-foreground",
+                ? "bg-brand-soft text-brand shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--brand)_25%,transparent)]"
+                : "text-muted hover:bg-surface-muted hover:text-foreground hover:translate-x-0.5",
             )}
           >
-            <Icon className="h-4 w-4" aria-hidden="true" />
+            <Icon
+              className={cn("h-4 w-4 transition-transform", isActive && "text-brand")}
+              aria-hidden="true"
+            />
             {link.label}
+            <ChevronRight
+              className={cn(
+                "ml-auto h-3.5 w-3.5 shrink-0 -translate-x-2 opacity-0 transition-all duration-200 ease-out",
+                "group-hover:translate-x-0 group-hover:opacity-100",
+                isActive ? "translate-x-0 opacity-70 text-brand" : "text-muted",
+              )}
+              aria-hidden="true"
+            />
           </Link>
         );
       })}
@@ -63,8 +74,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface p-4 md:flex">
+    <div className="flex min-h-screen bg-mesh">
+      <PageTransitionSweep />
+
+      <aside className="print-hidden hidden w-64 shrink-0 flex-col border-r border-border bg-surface/80 backdrop-blur-xl p-4 md:flex">
         <div className="mb-6 px-1">
           <BrandMark />
         </div>
@@ -99,7 +112,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       ) : null}
 
       <div className="flex flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between border-b border-border bg-surface px-4 md:justify-end">
+        <header className="print-hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface/70 backdrop-blur-xl px-4 md:justify-end">
           <Button
             variant="ghost"
             size="icon"

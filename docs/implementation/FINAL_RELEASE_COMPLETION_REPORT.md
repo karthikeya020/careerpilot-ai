@@ -1,5 +1,52 @@
 # Final Release Completion Report
 
+## Addendum 3: premium visual transformation pass (2026-08-05)
+
+Redesigns every remaining major competition-visible screen with the
+premium design system, builds the previously-nonexistent GraphRAG
+root-cause page, and fixes one real production bug. Full detail in
+`docs/implementation/CURRENT_CHECKPOINT.md` "Premium visual
+transformation pass"; design rationale in `docs/design/
+FINAL_VISUAL_TRANSFORMATION_REPORT.md`. Summary:
+
+1. **New `/graphrag` page** — a sequential-reveal root-cause chain (missed
+   question → weak concept → prerequisite → role requirement →
+   intervention) built against the real Neo4j-backed `/graph/root-cause`
+   endpoint, which existed in the backend but had no frontend consumer
+   until this pass. Live-verified end-to-end against the running Docker
+   stack: answered an assessment question incorrectly, followed the new
+   "See root cause" link, confirmed the real graph-derived chain
+   rendered.
+2. **Interview Arena, Interview Replay, Experiment Lab, Research Lab,
+   Trust Center, Responsible AI Center, and all four role dashboards**
+   redesigned with the shared `bg-mesh`/`card-premium`/`text-h1` design
+   language. Along the way, fixed two real content bugs found by reading
+   the actual API contracts rather than assuming the old UI was complete:
+   Responsible AI Center was rendering the wrong backend field under
+   "Never evaluates" (`non_claims` instead of `does_not_evaluate` — both
+   are real, distinct fields the backend has always returned) and Trust
+   Center links from Interview Replay never actually preselected the
+   linked execution (`?execution=` was never read).
+3. **One real production bug found via live-browser console inspection**:
+   the root layout's no-flash theme script threw `SyntaxError: missing )
+   after argument list` on every page load in the production build,
+   because a constant was imported into a Server Component from a
+   `"use client"` module and got serialized as a broken RSC client-
+   reference stub instead of its literal string value. Fixed by moving
+   the constant to a plain shared module; re-verified via `curl` against
+   the rebuilt Docker image and a live browser console read showing zero
+   exceptions.
+4. **Regression gate**: frontend 68 tests / 17 files passing (two real
+   copy regressions this pass's redesign introduced were caught by
+   pre-existing tests and fixed in the app code); `tsc`/`eslint` clean;
+   `next build` succeeds at 25 routes (up from 24); `docker compose up -d
+   --build frontend` — all 5 services healthy. No backend code changed.
+5. **Honestly not done this pass**: full screenshot capture across every
+   route/theme/resolution combination (2 new real screenshots captured
+   for `/graphrag`, added to the existing 9); a dedicated axe-core re-run
+   against the newly redesigned/bespoke markup; a physical projector
+   test; light-theme screenshot capture.
+
 ## Addendum 2: final technical closure pass (2026-08-05)
 
 Closes the two remaining documented verification gaps from Addendum 1

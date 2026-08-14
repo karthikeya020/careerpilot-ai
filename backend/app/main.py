@@ -10,6 +10,7 @@ from app.api.experiments import router as experiments_router
 from app.api.graphrag import router as graphrag_router
 from app.api.health import router as health_router
 from app.api.interviews import router as interviews_router
+from app.api.job_catalog import router as job_catalog_router
 from app.api.job_descriptions import router as job_descriptions_router
 from app.api.missions import router as missions_router
 from app.api.onboarding import router as onboarding_router
@@ -50,6 +51,7 @@ app.include_router(students_router, prefix=settings.api_v1_prefix)
 app.include_router(onboarding_router, prefix=settings.api_v1_prefix)
 app.include_router(resumes_router, prefix=settings.api_v1_prefix)
 app.include_router(job_descriptions_router, prefix=settings.api_v1_prefix)
+app.include_router(job_catalog_router, prefix=settings.api_v1_prefix)
 app.include_router(career_twin_router, prefix=settings.api_v1_prefix)
 app.include_router(dashboard_router, prefix=settings.api_v1_prefix)
 app.include_router(missions_router, prefix=settings.api_v1_prefix)

@@ -25,8 +25,8 @@ export function ErrorState({ title, message, onRetry, isPermissionDenied = false
       role="alert"
       className={
         isPermissionDenied
-          ? "flex flex-col items-center justify-center gap-3 rounded-[var(--radius-md)] border border-border bg-surface-muted p-8 text-center"
-          : "flex flex-col items-center justify-center gap-3 rounded-[var(--radius-md)] border border-danger/30 bg-danger/5 p-8 text-center"
+          ? "flex flex-col items-center justify-center gap-3 rounded-[var(--radius-lg)] border border-border bg-surface-muted p-8 text-center animate-fade-in"
+          : "flex flex-col items-center justify-center gap-3 rounded-[var(--radius-lg)] border border-danger/30 bg-danger/5 p-8 text-center animate-fade-in"
       }
     >
       <div

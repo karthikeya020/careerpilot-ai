@@ -4,6 +4,7 @@ same pattern as test_agents.py.
 """
 
 from app.agents.communication_agent import CommunicationAgent, CommunicationInput
+from app.agents.follow_up_agent import FollowUpAgent, FollowUpInput
 from app.agents.hr_agent import HRAgent, HRInterviewInput
 from app.agents.jd_alignment_agent import JDAlignmentAgent, JDAlignmentInput
 from app.agents.resume_evidence_agent import ResumeEvidenceAgent, ResumeEvidenceCheckInput
@@ -134,6 +135,70 @@ def test_jd_alignment_agent_scores_overlap():
     )
     assert output.role_alignment_score > 0
     assert output.missing_context_warning is False
+
+
+def test_follow_up_agent_technical_missing_keyword_triggers_follow_up():
+    agent = FollowUpAgent()
+    output = agent.run(
+        FollowUpInput(
+            question_prompt="Explain INNER JOIN vs LEFT JOIN.",
+            transcript="An inner join returns only matched rows.",
+            mode="technical",
+            expected_keywords=["inner join", "left join", "match", "unmatched", "null"],
+            dimension_scores={"relevance": 0.4, "correctness": 0.4, "depth": 0.3},
+        )
+    )
+    assert output.should_follow_up is True
+    assert "left join" in output.follow_up_prompt.lower()
+    assert output.gap_description
+
+
+def test_follow_up_agent_technical_full_coverage_no_follow_up():
+    agent = FollowUpAgent()
+    output = agent.run(
+        FollowUpInput(
+            question_prompt="Explain INNER JOIN vs LEFT JOIN.",
+            transcript=(
+                "An inner join returns only matched rows, because it excludes non-matching data; a left join "
+                "keeps all left rows as null when unmatched, for example when no related row exists."
+            ),
+            mode="technical",
+            expected_keywords=["inner join", "left join", "match", "unmatched", "null"],
+            dimension_scores={"relevance": 1.0, "correctness": 1.0, "depth": 0.9},
+        )
+    )
+    assert output.should_follow_up is False
+    assert output.follow_up_prompt == ""
+
+
+def test_follow_up_agent_hr_missing_result_triggers_follow_up():
+    agent = FollowUpAgent()
+    output = agent.run(
+        FollowUpInput(
+            question_prompt="Tell me about a time you led a project.",
+            transcript="I led a project and worked with my team on the deliverables.",
+            mode="hr",
+            dimension_scores={"relevance": 0.6, "structure": 0.25, "evidence": 0.4},
+        )
+    )
+    assert output.should_follow_up is True
+    assert "result" in output.follow_up_prompt.lower() or "outcome" in output.follow_up_prompt.lower()
+
+
+def test_follow_up_agent_hr_good_star_no_follow_up():
+    agent = FollowUpAgent()
+    output = agent.run(
+        FollowUpInput(
+            question_prompt="Tell me about a time you led a project.",
+            transcript=(
+                "When I was leading a project, I needed to ship a feature in two weeks. So I split the work "
+                "and pair-programmed with a teammate. As a result, we shipped 3 days early."
+            ),
+            mode="hr",
+            dimension_scores={"relevance": 0.8, "structure": 0.9, "evidence": 1.0},
+        )
+    )
+    assert output.should_follow_up is False
 
 
 def test_supervisor_agent_dispatches_interview_evaluation_roster():

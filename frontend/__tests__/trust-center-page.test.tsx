@@ -15,6 +15,7 @@ vi.mock("@/lib/api-client", async () => {
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   usePathname: () => "/trust-center",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock("@/lib/auth-context", () => ({

@@ -57,7 +57,10 @@ const IN_PROGRESS: InterviewProgressOut = {
     order_index: 0,
     mode: "technical",
     prompt: "Explain INNER JOIN vs LEFT JOIN.",
+    difficulty: "medium",
     question_source: "bank",
+    is_follow_up: false,
+    follow_up_rationale: null,
   },
   is_complete: false,
 };
@@ -70,6 +73,7 @@ const AFTER_ANSWER: InterviewProgressOut = {
     transcript: "An inner join returns only matched rows.",
     transcript_source: "typed",
     audio_duration_seconds: null,
+    audio_mime_type: null,
     has_audio: false,
     submitted_at: "2026-08-04T00:01:00Z",
   },
@@ -94,6 +98,7 @@ const AFTER_ANSWER: InterviewProgressOut = {
       clarity_score: 1,
       conciseness_score: 0.8,
       professional_communication_score: 0.9,
+      camera_on_ratio: null,
     },
     timeline_markers: [],
     better_answer_framework: "State the concept, give an example, note a trade-off.",
@@ -118,19 +123,28 @@ beforeEach(() => {
   postMock.mockReset();
 });
 
+async function enterReadyRoom(user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByText(/ready room/i);
+  await user.click(screen.getByRole("button", { name: /begin round/i }));
+}
+
 describe("InterviewSessionPage", () => {
   it("renders the current question and never leaks expected_keywords", async () => {
-    getMock.mockResolvedValueOnce(IN_PROGRESS);
+    getMock.mockResolvedValue(IN_PROGRESS);
+    const user = userEvent.setup();
     renderPage();
+    await enterReadyRoom(user);
 
     expect(await screen.findByText(/Explain INNER JOIN vs LEFT JOIN/i)).toBeInTheDocument();
     expect(screen.queryByText(/expected_keywords/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/model_answer_summary/i)).not.toBeInTheDocument();
   });
 
   it("disables submit until an answer is typed, then submits a typed answer", async () => {
-    getMock.mockResolvedValueOnce(IN_PROGRESS);
+    getMock.mockResolvedValue(IN_PROGRESS);
     const user = userEvent.setup();
     renderPage();
+    await enterReadyRoom(user);
 
     await screen.findByText(/Explain INNER JOIN vs LEFT JOIN/i);
     const submitButton = screen.getByRole("button", { name: /submit answer/i });
@@ -152,10 +166,11 @@ describe("InterviewSessionPage", () => {
   });
 
   it("shows the evaluation panel and completion state after the last question", async () => {
-    getMock.mockResolvedValueOnce(IN_PROGRESS);
+    getMock.mockResolvedValue(IN_PROGRESS);
     postMock.mockResolvedValueOnce(AFTER_ANSWER);
     const user = userEvent.setup();
     renderPage();
+    await enterReadyRoom(user);
 
     await screen.findByText(/Explain INNER JOIN vs LEFT JOIN/i);
     await user.type(screen.getByLabelText(/your answer/i), "An inner join returns only matched rows.");
@@ -173,8 +188,10 @@ describe("InterviewSessionPage", () => {
   });
 
   it("allows recording as an alternative to typing (mic-permission path never blocks the form)", async () => {
-    getMock.mockResolvedValueOnce(IN_PROGRESS);
+    getMock.mockResolvedValue(IN_PROGRESS);
+    const user = userEvent.setup();
     renderPage();
+    await enterReadyRoom(user);
 
     await screen.findByText(/Explain INNER JOIN vs LEFT JOIN/i);
     expect(screen.getByRole("button", { name: /record answer/i })).toBeInTheDocument();

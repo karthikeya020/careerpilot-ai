@@ -130,3 +130,64 @@ def test_cross_student_cannot_access_or_compare_another_students_scenario(client
 
     own_list = client.get("/api/v1/experiments/scenarios", headers=headers_b)
     assert own_list.json() == []
+
+
+def test_target_plan_returns_an_ordered_calendar_shaped_plan(client) -> None:
+    headers = _register_and_auth(client, email="target-plan@example.com")
+
+    response = client.post(
+        "/api/v1/experiments/target-plan",
+        headers=headers,
+        json={
+            "target_component": "technical_readiness",
+            "target_score": 0.55,
+            "candidate_skills": ["Python"],
+            "weekly_hours": 10,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["target_component"] == "technical_readiness"
+    assert body["reached_target"] is True
+    assert len(body["plan"]) >= 1
+    assert body["calendar"]["weekly_hours_budget"] == 10
+    assert len(body["marginal_gain_curve"]) > 0
+    assert "not a guarantee" in body["disclaimer"].lower() or "not guaranteed" in body["disclaimer"].lower()
+
+
+def test_target_plan_with_deadline_reports_feasibility(client) -> None:
+    headers = _register_and_auth(client, email="target-plan-deadline@example.com")
+
+    response = client.post(
+        "/api/v1/experiments/target-plan",
+        headers=headers,
+        json={
+            "target_component": "technical_readiness",
+            "target_score": 0.9,
+            "candidate_skills": ["Python"],
+            "weekly_hours": 2,
+            "deadline": "2026-01-10",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["calendar"]["deadline"] == "2026-01-10"
+    assert body["calendar"]["fits_deadline"] is not None
+
+
+def test_prediction_accuracy_endpoint_is_owner_scoped(client) -> None:
+    headers_a = _register_and_auth(client, email="prediction-owner@example.com")
+    headers_b = _register_and_auth(client, email="prediction-attacker@example.com")
+
+    scenario = client.post(
+        "/api/v1/experiments/scenarios",
+        headers=headers_a,
+        json={"name": "Plan", "allocations": [{"skill_name": "SQL", "activity_type": "practice_problems", "hours": 20}]},
+    ).json()
+
+    own = client.get(f"/api/v1/experiments/scenarios/{scenario['id']}/prediction-accuracy", headers=headers_a)
+    assert own.status_code == 200
+    assert own.json()["status"] in ("no_new_evidence_yet", "measured", "no_baseline")
+
+    forbidden = client.get(f"/api/v1/experiments/scenarios/{scenario['id']}/prediction-accuracy", headers=headers_b)
+    assert forbidden.status_code == 404

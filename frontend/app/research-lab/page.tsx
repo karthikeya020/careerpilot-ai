@@ -1,9 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } from "recharts";
-import { AlertTriangle, FlaskConical, Microscope } from "lucide-react";
+import { AlertTriangle, FileDown, FlaskConical, GraduationCap, Microscope, ScrollText } from "lucide-react";
 import { toast } from "sonner";
+import { LiveCriticTogglePanel } from "@/components/research/live-critic-toggle-panel";
+import {
+  AdversarialSuiteCard,
+  DriftCanaryCard,
+  EfficiencyFrontierCard,
+  FairnessProbeCard,
+  FallbackFidelityCard,
+  ThresholdTuningCard,
+  useRobustnessPanels,
+} from "@/components/research/robustness-panels";
 import { Protected } from "@/components/layout/protected";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,8 +29,10 @@ import {
   useRunRoutingExperiment,
 } from "@/hooks/use-research-lab";
 import { ApiError } from "@/lib/api-client";
-import { formatDateTime } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import type { AblationSuiteOut, GraphVsVectorExperimentOut, RoutingExperimentOut } from "@/types/api";
+
+type ViewMode = "general" | "technical";
 
 const VARIANT_LABELS: Record<string, string> = {
   single_agent_fixed: "Single agent (fixed)",
@@ -48,15 +61,16 @@ function RoutingResultCard({ result }: { result: RoutingExperimentOut }) {
     value: Math.round(rate * 100),
   }));
   return (
-    <Card>
+    <Card variant="glow-brand" className="animate-scale-in">
       <CardHeader>
         <CardTitle as="h2">Experiment A: routing-strategy agreement with rubric labels</CardTitle>
         <CardDescription>{result.case_count} curated cases -- higher agreement means the strategy routed the way a reviewer would expect.</CardDescription>
       </CardHeader>
       <CardContent>
         <SimpleBarChart data={data} />
-        <p className="mt-2 text-xs text-muted">
-          Sample size: {result.case_count} cases. Preliminary -- a small curated dataset, not a large human-reviewed benchmark.
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
+          <Badge variant="warning">Preliminary</Badge>
+          Sample size: {result.case_count} cases — a small curated dataset, not a large human-reviewed benchmark.
         </p>
       </CardContent>
     </Card>
@@ -69,7 +83,7 @@ function GraphVsVectorResultCard({ result }: { result: GraphVsVectorExperimentOu
     { label: "Vector-only", value: Math.round((result.vector_only_accuracy ?? 0) * 100) },
   ];
   return (
-    <Card>
+    <Card variant="glow-brand" className="animate-scale-in">
       <CardHeader>
         <CardTitle as="h2">Experiment B: GraphRAG traversal vs vector-only retrieval</CardTitle>
         <CardDescription>Does the retrieval method surface the correct prerequisite concept behind a missed question?</CardDescription>
@@ -77,7 +91,9 @@ function GraphVsVectorResultCard({ result }: { result: GraphVsVectorExperimentOu
       <CardContent>
         <SimpleBarChart data={data} />
         <p className="mt-2 text-xs text-muted">{result.methodology_note}</p>
-        <p className="mt-1 text-xs text-warning">{result.sample_size_warning}</p>
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-warning">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> {result.sample_size_warning}
+        </p>
       </CardContent>
     </Card>
   );
@@ -96,15 +112,15 @@ function pct(value: unknown): string {
   return typeof value === "number" ? `${Math.round(value * 100)}%` : "—";
 }
 
-function AblationSeamCard({ seamKey, seam }: { seamKey: string; seam: Record<string, unknown> }) {
+function AblationSeamCard({ seamKey, seam, mode }: { seamKey: string; seam: Record<string, unknown>; mode: ViewMode }) {
   const label = SEAM_LABELS[seamKey] ?? seamKey;
-  const rows = Array.isArray(seam.rows) ? (seam.rows as Record<string, unknown>[]) : null;
+  const rows = mode === "technical" && Array.isArray(seam.rows) ? (seam.rows as Record<string, unknown>[]) : null;
 
   return (
-    <div className="rounded-[var(--radius-md)] border border-border p-3">
+    <div className="rounded-[var(--radius-md)] border border-border bg-surface-muted/30 p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-foreground">{label}</p>
-        {seam.preliminary === true && <Badge variant="muted">Preliminary</Badge>}
+        {seam.preliminary === true && <Badge variant="warning">Preliminary</Badge>}
       </div>
 
       {seamKey === "1_care_disabled_vs_enabled" && !!seam.agreement_rate_by_variant && (
@@ -174,16 +190,16 @@ function AblationSeamCard({ seamKey, seam }: { seamKey: string; seam: Record<str
   );
 }
 
-function AblationSuiteCard({ result }: { result: AblationSuiteOut }) {
+function AblationSuiteCard({ result, mode }: { result: AblationSuiteOut; mode: ViewMode }) {
   return (
-    <Card>
+    <Card variant="glow-brand" className="animate-scale-in">
       <CardHeader>
         <CardTitle as="h2">Six-ablation comparison</CardTitle>
         <CardDescription>{result.methodology_note}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {Object.entries(result.ablations).map(([key, seam]) => (
-          <AblationSeamCard key={key} seamKey={key} seam={seam} />
+          <AblationSeamCard key={key} seamKey={key} seam={seam} mode={mode} />
         ))}
       </CardContent>
     </Card>
@@ -200,6 +216,7 @@ function ResearchLabBody() {
   const [routingResult, setRoutingResult] = useState<RoutingExperimentOut | null>(null);
   const [graphVsVectorResult, setGraphVsVectorResult] = useState<GraphVsVectorExperimentOut | null>(null);
   const [ablationResult, setAblationResult] = useState<AblationSuiteOut | null>(null);
+  const [mode, setMode] = useState<ViewMode>("general");
 
   const handleRunRouting = () => {
     runRouting.mutate(undefined, {
@@ -222,36 +239,104 @@ function ResearchLabBody() {
     });
   };
 
+  const robustness = useRobustnessPanels();
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold text-foreground">
-          <Microscope className="h-5 w-5 text-brand" aria-hidden="true" />
-          Research Benchmark Lab
-        </h1>
-        <p className="mt-1 text-sm text-muted">
-          Why is CareerPilot better than one generic chatbot? Real, reproducible comparisons -- run them yourself below.
-        </p>
+      <div className="animate-fade-up relative overflow-hidden rounded-[var(--radius-xl)] border border-border bg-mesh p-8 md:p-10">
+        <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-gradient-radial-brand blur-3xl opacity-70" aria-hidden="true" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] bg-gradient-brand shadow-[var(--shadow-glow-brand)]">
+                <Microscope className="h-5 w-5 text-brand-foreground" aria-hidden="true" />
+              </span>
+              <h1 className="text-h1 text-foreground">Research Benchmark Lab</h1>
+            </div>
+            <p className="mt-3 max-w-2xl text-sm text-muted">
+              Why is CareerPilot more intelligent than one generic chatbot? Real, reproducible comparisons — run
+              them yourself below. Sample sizes and limitations are shown, never hidden.
+            </p>
+            <Button size="sm" variant="outline" className="mt-4" asChild>
+              <Link href="/research-lab/report">
+                <FileDown className="h-3.5 w-3.5" aria-hidden="true" /> Export full research report
+              </Link>
+            </Button>
+          </div>
+          <div className="flex shrink-0 rounded-[var(--radius-md)] border border-border bg-surface p-1">
+            <button
+              type="button"
+              onClick={() => setMode("general")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-[var(--radius-sm)] px-3 py-1.5 text-xs font-medium transition-colors",
+                mode === "general" ? "bg-gradient-brand text-brand-foreground" : "text-muted hover:text-foreground",
+              )}
+              aria-pressed={mode === "general"}
+            >
+              <GraduationCap className="h-3.5 w-3.5" aria-hidden="true" /> General audience
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("technical")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-[var(--radius-sm)] px-3 py-1.5 text-xs font-medium transition-colors",
+                mode === "technical" ? "bg-gradient-brand text-brand-foreground" : "text-muted hover:text-foreground",
+              )}
+              aria-pressed={mode === "technical"}
+            >
+              <ScrollText className="h-3.5 w-3.5" aria-hidden="true" /> Technical judge
+            </button>
+          </div>
+        </div>
       </div>
+
+      {mode === "general" && (
+        <div className="animate-fade-up delay-1 rounded-[var(--radius-lg)] border border-brand-soft bg-brand-soft/40 p-4 text-sm text-foreground">
+          CareerPilot doesn&apos;t rely on a single generic prompt. It routes each task through CARE (Confidence-Aware
+          Routing Engine) to the right specialist agent, grounds answers in a real knowledge graph instead of guessing,
+          and checks agents against each other before trusting a result. The experiments below measure each of those
+          design choices against a simpler baseline, one at a time.
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <Button onClick={handleRunRouting} disabled={runRouting.isPending}>
-          <FlaskConical className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+          <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
           {runRouting.isPending ? "Running..." : "Run Experiment A: routing strategies"}
         </Button>
         <Button variant="outline" onClick={handleRunGraphVsVector} disabled={runGraphVsVector.isPending}>
-          <FlaskConical className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+          <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
           {runGraphVsVector.isPending ? "Running..." : "Run Experiment B: graph vs vector"}
         </Button>
         <Button variant="outline" onClick={handleRunAblations} disabled={runAblations.isPending}>
-          <FlaskConical className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+          <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
           {runAblations.isPending ? "Running..." : "Run all 6 ablations"}
         </Button>
       </div>
 
       {routingResult && <RoutingResultCard result={routingResult} />}
       {graphVsVectorResult && <GraphVsVectorResultCard result={graphVsVectorResult} />}
-      {ablationResult && <AblationSuiteCard result={ablationResult} />}
+      {ablationResult && <AblationSuiteCard result={ablationResult} mode={mode} />}
+
+      <Card className="animate-fade-up">
+        <CardHeader>
+          <CardTitle as="h2">Robustness &amp; validation suite</CardTitle>
+          <CardDescription>
+            Efficiency frontier, empirical threshold tuning, adversarial inputs, fallback fidelity, fairness
+            probing, and scoring-drift detection -- all real, all reproducible.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>{robustness.buttons}</CardContent>
+      </Card>
+
+      {robustness.efficiency.data && <EfficiencyFrontierCard result={robustness.efficiency.data} />}
+      {robustness.thresholds.data && <ThresholdTuningCard result={robustness.thresholds.data} />}
+      {robustness.adversarial.data && <AdversarialSuiteCard result={robustness.adversarial.data} />}
+      {robustness.fidelity.data && <FallbackFidelityCard result={robustness.fidelity.data} />}
+      {robustness.fairness.data && <FairnessProbeCard result={robustness.fairness.data} />}
+      {robustness.drift.data && <DriftCanaryCard result={robustness.drift.data} />}
+
+      <LiveCriticTogglePanel />
 
       <Card>
         <CardHeader>
@@ -271,26 +356,34 @@ function ResearchLabBody() {
                   Preliminary: only {calibration.sample_size} labeled result(s) so far (30+ recommended for a stable estimate).
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4 text-center sm:grid-cols-4">
-                <div>
-                  <p className="text-lg font-semibold text-foreground">{calibration.sample_size}</p>
-                  <p className="text-[11px] text-muted">Sample size</p>
+              {mode === "technical" && (
+                <div className="grid grid-cols-2 gap-4 text-center sm:grid-cols-4">
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">{calibration.sample_size}</p>
+                    <p className="text-[11px] text-muted">Sample size</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">{calibration.brier_score?.toFixed(3) ?? "—"}</p>
+                    <p className="text-[11px] text-muted">Brier score (lower is better)</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">{calibration.expected_calibration_error?.toFixed(3) ?? "—"}</p>
+                    <p className="text-[11px] text-muted">Expected Calibration Error</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">
+                      {calibration.high_confidence_error_rate !== null ? `${(calibration.high_confidence_error_rate * 100).toFixed(0)}%` : "—"}
+                    </p>
+                    <p className="text-[11px] text-muted">High-confidence error rate</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-lg font-semibold text-foreground">{calibration.brier_score?.toFixed(3) ?? "—"}</p>
-                  <p className="text-[11px] text-muted">Brier score (lower is better)</p>
-                </div>
-                <div>
-                  <p className="text-lg font-semibold text-foreground">{calibration.expected_calibration_error?.toFixed(3) ?? "—"}</p>
-                  <p className="text-[11px] text-muted">Expected Calibration Error</p>
-                </div>
-                <div>
-                  <p className="text-lg font-semibold text-foreground">
-                    {calibration.high_confidence_error_rate !== null ? `${(calibration.high_confidence_error_rate * 100).toFixed(0)}%` : "—"}
-                  </p>
-                  <p className="text-[11px] text-muted">High-confidence error rate</p>
-                </div>
-              </div>
+              )}
+              {mode === "general" && (
+                <p className="text-xs text-muted">
+                  In plain terms: when CareerPilot says it&apos;s 80% confident, it should be right about 80% of the
+                  time. The bars below compare stated confidence against actual accuracy for every case run so far.
+                </p>
+              )}
               <div className="space-y-1">
                 <p className="text-xs font-medium text-foreground">Reliability bins</p>
                 {calibration.bins.map((bin, i) => (
@@ -315,8 +408,24 @@ function ResearchLabBody() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex-row items-center justify-between gap-2">
           <CardTitle as="h2">Run history</CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const payload = { routingResult, graphVsVectorResult, ablationResult, calibration, runs };
+              const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "careerpilot-research-results.json";
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            Export raw results
+          </Button>
         </CardHeader>
         <CardContent>
           {runsLoading ? (

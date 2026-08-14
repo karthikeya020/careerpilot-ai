@@ -1,10 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
-import type { ResumeOut, ResumeSummaryOut } from "@/types/api";
+import type {
+  RecruiterCardOut,
+  ResumeAnalysisOut,
+  ResumeOut,
+  ResumeSummaryOut,
+  RewriteSuggestionOut,
+} from "@/types/api";
 
 function invalidateProfileDependents(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ["resume"] });
   queryClient.invalidateQueries({ queryKey: ["resume-history"] });
+  queryClient.invalidateQueries({ queryKey: ["resume-analysis"] });
+  queryClient.invalidateQueries({ queryKey: ["resume-recruiter-card"] });
+  queryClient.invalidateQueries({ queryKey: ["resume-rewrite-suggestions"] });
   queryClient.invalidateQueries({ queryKey: ["dashboard"] });
   queryClient.invalidateQueries({ queryKey: ["career-twin"] });
   queryClient.invalidateQueries({ queryKey: ["missions"] });
@@ -46,5 +55,27 @@ export function useActivateResume() {
   return useMutation({
     mutationFn: (resumeId: string) => api.post<ResumeOut>(`/resumes/${resumeId}/activate`),
     onSuccess: () => invalidateProfileDependents(queryClient),
+  });
+}
+
+export function useResumeAnalysis() {
+  return useQuery({
+    queryKey: ["resume-analysis"],
+    queryFn: () => api.get<ResumeAnalysisOut>("/resumes/me/analysis"),
+  });
+}
+
+export function useRecruiterCard() {
+  return useQuery({
+    queryKey: ["resume-recruiter-card"],
+    queryFn: () => api.get<RecruiterCardOut>("/resumes/me/recruiter-card"),
+  });
+}
+
+export function useRewriteSuggestions(listingId: string | null) {
+  return useQuery({
+    queryKey: ["resume-rewrite-suggestions", listingId],
+    queryFn: () => api.get<RewriteSuggestionOut[]>(`/resumes/me/rewrite-suggestions?listing_id=${listingId}`),
+    enabled: !!listingId,
   });
 }

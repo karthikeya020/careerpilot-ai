@@ -22,6 +22,8 @@ from app.schemas.interview import (
     InterviewQuestionOut,
     InterviewReplayItemOut,
     InterviewReplayOut,
+    InterviewReplayQuestionOut,
+    InterviewRoundSummaryOut,
     InterviewSessionOut,
     StartInterviewRequest,
 )
@@ -48,6 +50,7 @@ def _answer_out(answer: InterviewAnswer) -> InterviewAnswerOut:
         transcript=answer.transcript,
         transcript_source=answer.transcript_source,
         audio_duration_seconds=float(answer.audio_duration_seconds) if answer.audio_duration_seconds else None,
+        audio_mime_type=answer.audio_mime_type,
         has_audio=answer.audio_storage_path is not None,
         submitted_at=answer.submitted_at,
     )
@@ -108,6 +111,8 @@ async def submit_answer(
     question_id: uuid.UUID = Form(...),
     typed_answer_text: str | None = Form(None),
     audio_duration_seconds: float | None = Form(None),
+    used_browser_transcription: bool = Form(False),
+    camera_on_ratio: float | None = Form(None),
     audio: UploadFile | None = File(None),
     student_profile: StudentProfile = Depends(get_current_student_profile),
     db: Session = Depends(get_db),
@@ -127,8 +132,10 @@ async def submit_answer(
         audio_mime_type=audio.content_type if audio is not None else None,
         audio_duration_seconds=audio_duration_seconds,
         typed_answer_text=typed_answer_text,
+        used_browser_transcription=used_browser_transcription,
     )
-    interview_service.evaluate_answer(db, student_profile, session, question, answer)
+    evaluation = interview_service.evaluate_answer(db, student_profile, session, question, answer, camera_on_ratio=camera_on_ratio)
+    interview_service.maybe_insert_follow_up(db, session, question, answer, evaluation)
     db.refresh(session)
 
     next_question = interview_service.get_next_question(session)
@@ -152,7 +159,7 @@ def get_replay(
             continue
         items.append(
             InterviewReplayItemOut(
-                question=InterviewQuestionOut.model_validate(question),
+                question=InterviewReplayQuestionOut.model_validate(question),
                 answer=_answer_out(question.answer),
                 evaluation=(
                     InterviewEvaluationOut.model_validate(question.answer.evaluation)
@@ -161,7 +168,8 @@ def get_replay(
                 ),
             )
         )
-    return InterviewReplayOut(session=InterviewSessionOut.model_validate(session), items=items)
+    summary = InterviewRoundSummaryOut(**interview_service.build_round_summary(session))
+    return InterviewReplayOut(session=InterviewSessionOut.model_validate(session), items=items, summary=summary)
 
 
 @router.get("/answers/{answer_id}/audio")

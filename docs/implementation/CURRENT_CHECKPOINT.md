@@ -1,5 +1,53 @@
 # Current Checkpoint
 
+## TRL assessment + anti-fabrication audit (2026-08-07, this pass)
+
+Requested: push the project's demonstrable maturity as high as honestly
+possible (TRL framing) and independently verify the "no fake data"
+constitution rules actually hold in every production code path, not just
+the ones already covered by existing tests.
+
+**Audit** (full-codebase search for `random`/`mock`/`fake`/`dummy`/
+`placeholder`/`TODO`/hardcoded values across `backend/app/` and
+`frontend/`, excluding test fixtures): no high-severity fabrication found.
+The one real finding — `confidence` in `technical_agent.py`,
+`assessment_agent.py`, and `hr_agent.py` was a flat constant selected only
+by which code path ran (`0.55 if is_fallback else 0.85`), not derived from
+the specific answer's grading quality — is fixed. New
+`app/agents/confidence.py` computes confidence from real signal: rubric
+richness (how many keywords/terms were available to grade against) and,
+for multi-sub-score agents, sub-score agreement (a scattered read is
+penalized). 7 new tests in `tests/test_agent_confidence.py` lock this in,
+including that confidence now genuinely varies with input richness rather
+than only the fallback/live branch. `career_coach_agent.py` and
+`experiment_explainer_agent.py` were left as-is — both are prose-synthesis
+agents that restate already-real numbers/facts computed elsewhere; their
+confidence reflects phrasing-quality trust, a genuinely different (and
+lower-stakes) claim than a grading score's confidence. `resume_rewrite_agent.py`
+was also left as-is — its confidence is already conditioned on a real
+input property (`has_sufficient_evidence`), not just the fallback branch.
+
+The confidence fix changed `TechnicalAgent`'s output, which the existing
+scoring-drift canary (`app/evaluation/drift_canary.py`) correctly caught
+as a full-suite failure — it exists precisely to catch silent scoring
+drift, and this was real (intentional) drift, not silent. Re-ran the 3
+frozen canary cases through the updated agent, confirmed
+`correctness_score`/`depth_score` were byte-identical to the old baseline
+(that computation wasn't touched, only confidence was), and deliberately
+re-froze `canary_baseline.json` (`canary-v2`, documented inline why) with
+the new confidence values. This is exactly the tool doing its job, not a
+regression.
+
+**TRL assessment**: `docs/presentation/TRL_ASSESSMENT.md` (new) states the
+project's real TRL — 6, not inflated — with evidence mapped to the
+standard 9-level scale, an honest explanation of why it isn't TRL 7 yet
+(no real operational users, single seeded demo account, no multi-tenancy/
+SSO), and a concrete, mostly-non-research engineering roadmap to 7/8/9.
+
+Verified: 262 backend tests passing (`pytest -q`, 255 prior + 7 new,
+including the deliberate drift-canary re-freeze), 105 frontend tests
+unaffected (no frontend files touched this pass).
+
 ## Truth-first rescue pass, part 1: resume data-integrity fix (2026-08-06, this pass)
 
 **Start here for the next session.** A broad "truth-first rescue" review

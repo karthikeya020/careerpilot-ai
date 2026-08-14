@@ -1,15 +1,18 @@
 import uuid
+from datetime import date
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.deps import get_current_student_profile
 from app.core.errors import NotFoundError
-from app.models.assessment import AssessmentDomain, Question
+from app.models.assessment import Question
 from app.models.student import StudentProfile
 from app.schemas.assessment import (
+    ActivityDayDetailOut,
+    ActivityDayOut,
+    AssessmentAnalyticsOut,
     AssessmentAttemptOut,
     AssessmentDomainOut,
     AttemptProgressOut,
@@ -32,13 +35,29 @@ def _question_out(question: Question | None) -> QuestionOut | None:
         prompt=question.prompt,
         options=question.options,
         difficulty=question.difficulty,
+        difficulty_band=assessment_service.difficulty_band(question.difficulty),
         concept_name=question.concept.name,
     )
 
 
 @router.get("/domains", response_model=list[AssessmentDomainOut])
-def list_domains(db: Session = Depends(get_db)) -> list[AssessmentDomain]:
-    return list(db.scalars(select(AssessmentDomain)).all())
+def list_domains(
+    student_profile: StudentProfile = Depends(get_current_student_profile),
+    db: Session = Depends(get_db),
+) -> list[AssessmentDomainOut]:
+    summaries = assessment_service.list_domains_with_recommendations(db, student_profile)
+    return [
+        AssessmentDomainOut(
+            id=s.domain.id,
+            slug=s.domain.slug,
+            name=s.domain.name,
+            description=s.domain.description,
+            question_count=s.question_count,
+            recommended=s.recommended,
+            matched_skills=s.matched_skills,
+        )
+        for s in summaries
+    ]
 
 
 @router.post("/attempts", response_model=AttemptProgressOut)
@@ -52,11 +71,15 @@ def start_attempt(
     except ValueError as exc:
         raise NotFoundError(str(exc)) from exc
     next_question = assessment_service.select_next_question(db, attempt)
+    answered, total = assessment_service.domain_progress(db, attempt)
     return AttemptProgressOut(
         attempt_id=attempt.id,
         response=None,
         next_question=_question_out(next_question),
         is_complete=next_question is None,
+        domain_exhausted=next_question is None and answered >= total,
+        answered_in_domain=answered,
+        total_in_domain=total,
     )
 
 
@@ -92,13 +115,48 @@ def submit_response(
     db.refresh(attempt)
     next_question = assessment_service.select_next_question(db, attempt)
     is_complete = next_question is None
+    answered, total = assessment_service.domain_progress(db, attempt)
 
     if is_complete:
         assessment_service.complete_attempt(db, student_profile, attempt)
 
+    response_out = QuestionResponseOut.model_validate(response)
+    response_out.explanation = question.explanation
+
     return AttemptProgressOut(
         attempt_id=attempt.id,
-        response=QuestionResponseOut.model_validate(response),
+        response=response_out,
         next_question=_question_out(next_question),
         is_complete=is_complete,
+        domain_exhausted=is_complete and answered >= total,
+        answered_in_domain=answered,
+        total_in_domain=total,
     )
+
+
+@router.get("/activity-calendar", response_model=list[ActivityDayOut])
+def get_activity_calendar(
+    year: int = Query(..., ge=2000, le=2100),
+    student_profile: StudentProfile = Depends(get_current_student_profile),
+    db: Session = Depends(get_db),
+) -> list[ActivityDayOut]:
+    days = assessment_service.get_activity_calendar(db, student_profile, year)
+    return [ActivityDayOut(**d) for d in days]
+
+
+@router.get("/activity-calendar/{day}", response_model=list[ActivityDayDetailOut])
+def get_activity_calendar_day(
+    day: date,
+    student_profile: StudentProfile = Depends(get_current_student_profile),
+    db: Session = Depends(get_db),
+) -> list[ActivityDayDetailOut]:
+    entries = assessment_service.get_activity_for_date(db, student_profile, day)
+    return [ActivityDayDetailOut(**e) for e in entries]
+
+
+@router.get("/analytics", response_model=AssessmentAnalyticsOut)
+def get_analytics(
+    student_profile: StudentProfile = Depends(get_current_student_profile),
+    db: Session = Depends(get_db),
+) -> AssessmentAnalyticsOut:
+    return AssessmentAnalyticsOut(**assessment_service.get_analytics(db, student_profile))

@@ -54,8 +54,47 @@ class GraphRepository:
         with self._driver.session() as session:
             result = session.run(
                 f"MATCH (lr:{gs.LABEL_RESOURCE})-[:{gs.REL_TEACHES}]->(c:{gs.LABEL_CONCEPT} {{slug: $slug}}) "
-                "RETURN lr.id AS id, lr.title AS title",
+                "RETURN lr.id AS id, lr.title AS title, lr.url AS url",
                 slug=concept_slug,
+            )
+            return [dict(record) for record in result]
+
+    def all_concepts_graph(self) -> tuple[list[dict], list[dict]]:
+        """Every Concept node (with its containing Skill, if any) and every
+        DEPENDS_ON edge in the whole graph -- the full knowledge graph, not a
+        single concept's neighborhood."""
+        with self._driver.session() as session:
+            node_result = session.run(
+                f"MATCH (c:{gs.LABEL_CONCEPT}) "
+                f"OPTIONAL MATCH (s:{gs.LABEL_SKILL})-[:{gs.REL_CONTAINS_CONCEPT}]->(c) "
+                "RETURN c.slug AS slug, c.name AS name, s.name AS skill_name"
+            )
+            nodes = [dict(record) for record in node_result]
+            edge_result = session.run(
+                f"MATCH (c:{gs.LABEL_CONCEPT})-[:{gs.REL_DEPENDS_ON}]->(d:{gs.LABEL_CONCEPT}) "
+                "RETURN c.slug AS source, d.slug AS target"
+            )
+            edges = [dict(record) for record in edge_result]
+            return nodes, edges
+
+    def concepts_depending_on(self, slug: str, max_depth: int = 3) -> list[dict]:
+        """Reverse of concept_dependency_chain: concepts that (transitively)
+        depend ON `slug` -- i.e. what this concept unlocks/blocks."""
+        with self._driver.session() as session:
+            result = session.run(
+                f"MATCH (c:{gs.LABEL_CONCEPT})-[:{gs.REL_DEPENDS_ON}*1..{max_depth}]->"
+                f"(target:{gs.LABEL_CONCEPT} {{slug: $slug}}) "
+                "WITH DISTINCT c, min(size([(c)-[:DEPENDS_ON*]->(target) | 1])) AS depth "
+                "RETURN c.slug AS slug, c.name AS name, depth ORDER BY depth ASC",
+                slug=slug,
+            )
+            return [dict(record) for record in result]
+
+    def all_job_role_requirements(self) -> list[dict]:
+        with self._driver.session() as session:
+            result = session.run(
+                f"MATCH (r:{gs.LABEL_JOB_ROLE})-[:{gs.REL_REQUIRES}]->(s:{gs.LABEL_SKILL}) "
+                "RETURN r.title AS title, s.name AS skill_name"
             )
             return [dict(record) for record in result]
 

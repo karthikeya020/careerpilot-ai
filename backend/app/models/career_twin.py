@@ -73,5 +73,13 @@ class ReadinessComponent(UUIDPKMixin, Base):
     # already shrunk/capped and `explanation` carries the low-sample notice.
     evidence_diversity: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_low_sample: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # twin-v2 freshness safeguard (see docs/implementation/CAREER_TWIN_SCORING.md
+    # "Evidence freshness"): stale_evidence_fraction is the share of this
+    # component's evidence older than the staleness threshold at scoring
+    # time; is_stale_evidence is true when a majority of the evidence is
+    # stale, in which case confidence was already capped and `explanation`
+    # carries the freshness notice.
+    stale_evidence_fraction: Mapped[float] = mapped_column(Numeric(5, 4), default=0.0, nullable=False)
+    is_stale_evidence: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     snapshot: Mapped["CareerTwinSnapshot"] = relationship(back_populates="components")

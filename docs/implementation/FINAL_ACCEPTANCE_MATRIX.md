@@ -1,5 +1,23 @@
 # Final Acceptance Matrix
 
+**Updated 2026-08-05 (premium visual transformation pass)**: every
+remaining major competition-visible screen (GraphRAG, Interview Arena,
+Interview Replay, Experiment Lab, Research Lab, Trust Center, Responsible
+AI, all four role dashboards) now uses the premium design system the
+first visual pass established for Landing/Competition Entry/Career OS/
+Career Twin/Competition Mode — no screen is left on the old flat style. A
+real GraphRAG root-cause page (`/graphrag`) was built for the first time
+against the pre-existing but previously unused Neo4j-backed backend
+endpoint. One real production bug (a `SyntaxError` thrown on every page
+load from a broken theme-detection script) was found via live-browser
+console inspection and fixed. See `docs/implementation/CURRENT_CHECKPOINT.md`
+"Premium visual transformation pass" for full detail, and
+`docs/design/FINAL_VISUAL_TRANSFORMATION_REPORT.md` for the design-specific
+writeup. Rule 14 (accessibility) status is unchanged from the prior
+closure pass below — the new bespoke markup this pass added was not
+independently re-audited with axe-core, stated honestly rather than
+assumed clean.
+
 **Updated 2026-08-05 (final technical closure pass)**: rule 14
 (accessibility) and the dependency-scanning gap are now `PASS` — see
 "Constitution compliance" rule 14 below and the new final-closure rows.

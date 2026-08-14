@@ -313,8 +313,78 @@ QUESTIONS = [
     },
 ]
 
-# provider/url are illustrative "known-good" reference material, not scraped
-# at runtime (Prompt 2 explicitly avoids open web scraping in the core demo).
+# ============================================================================
+# Question-bank expansion (v2): four brand-new domains (JavaScript, DSA, OOP,
+# Java) plus a handful of extra questions on the existing SQL/Python concepts.
+# Loaded by alembic/versions/<rev>_expand_assessment_question_bank.py, which
+# runs AFTER the original 298c98dafbbb seed migration -- these lists are
+# additive, never re-declare an existing domain/concept/skill.
+#
+# Every question here is original and hand-written for this project (not
+# scraped from a live site at runtime or at build time): a working demo
+# cannot depend on a third-party site being reachable/unchanged, and
+# reproducing third-party question text verbatim would be a copyright risk.
+# Difficulty still uses the existing 1-5 scale; the API/UI buckets it into
+# easy (1-2) / medium (3) / hard (4-5) for display.
+# ============================================================================
+
+NEW_SKILLS = [
+    {"name": "Object-Oriented Programming", "category": "technical", "aliases": ["oop", "oops"]},
+]
+
+NEW_DOMAINS = [
+    {"slug": "javascript", "name": "JavaScript", "description": "Core language, async programming, and DOM fundamentals."},
+    {"slug": "dsa", "name": "Data Structures & Algorithms", "description": "Complexity analysis, core data structures, sorting and searching."},
+    {"slug": "oop", "name": "Object-Oriented Programming", "description": "Classes, encapsulation, inheritance, polymorphism, and abstraction."},
+    {"slug": "java", "name": "Java", "description": "Core language, collections, exceptions, memory, and concurrency basics."},
+]
+
+# (domain_slug, concept_slug, name, skill_name_or_None, description)
+NEW_CONCEPTS = [
+    ("javascript", "js_fundamentals", "JS Fundamentals", "JavaScript", "Variable declarations, primitive types, and equality checks."),
+    ("javascript", "js_functions", "Functions & Scope", "JavaScript", "Closures, hoisting, and arrow functions."),
+    ("javascript", "js_arrays_objects", "Arrays & Objects", "JavaScript", "Array methods, destructuring, and the spread operator."),
+    ("javascript", "js_async", "Asynchronous JavaScript", "JavaScript", "Callbacks, Promises, async/await, and the event loop."),
+    ("javascript", "js_dom_events", "DOM & Events", "JavaScript", "DOM manipulation and the event propagation model."),
+    ("dsa", "complexity", "Time & Space Complexity", "Algorithms", "Big-O analysis of algorithm running time and memory use."),
+    ("dsa", "arrays_strings", "Arrays & Strings", "Data Structures", "Contiguous data structures and common string/array techniques."),
+    ("dsa", "linked_lists", "Linked Lists", "Data Structures", "Singly/doubly linked lists and pointer-based traversal."),
+    ("dsa", "stacks_queues", "Stacks & Queues", "Data Structures", "LIFO and FIFO data structures and their applications."),
+    ("dsa", "trees_graphs", "Trees & Graphs", "Data Structures", "Hierarchical and networked data structures and traversal."),
+    ("dsa", "sorting_searching", "Sorting & Searching", "Algorithms", "Comparison sorts, binary search, and their complexity trade-offs."),
+    ("oop", "oop_basics", "Classes & Objects", "Object-Oriented Programming", "The fundamental building blocks of object-oriented design."),
+    ("oop", "encapsulation", "Encapsulation", "Object-Oriented Programming", "Bundling data and behavior while restricting direct access."),
+    ("oop", "inheritance", "Inheritance", "Object-Oriented Programming", "Reusing and extending behavior across a class hierarchy."),
+    ("oop", "polymorphism", "Polymorphism", "Object-Oriented Programming", "One interface, many implementations -- overloading and overriding."),
+    ("oop", "abstraction", "Abstraction", "Object-Oriented Programming", "Hiding implementation detail behind a simpler interface."),
+    ("java", "java_basics", "Java Fundamentals", "Java", "JVM/JDK/JRE, primitive types, and String comparison."),
+    ("java", "java_collections", "Collections Framework", "Java", "List, Map, and Set implementations and their trade-offs."),
+    ("java", "java_exceptions", "Exception Handling", "Java", "Checked vs. unchecked exceptions and try/catch/finally."),
+    ("java", "java_memory", "Memory Management & GC", "Java", "The heap, the stack, and garbage collection."),
+    ("java", "java_multithreading", "Multithreading Basics", "Java", "Threads, synchronization, and race conditions."),
+]
+
+# (concept_slug, depends_on_slug) -- both within the same new domain.
+NEW_CONCEPT_DEPENDENCIES = [
+    ("js_functions", "js_fundamentals"),
+    ("js_arrays_objects", "js_fundamentals"),
+    ("js_async", "js_functions"),
+    ("js_dom_events", "js_arrays_objects"),
+    ("arrays_strings", "complexity"),
+    ("sorting_searching", "complexity"),
+    ("linked_lists", "arrays_strings"),
+    ("stacks_queues", "arrays_strings"),
+    ("trees_graphs", "linked_lists"),
+    ("encapsulation", "oop_basics"),
+    ("inheritance", "oop_basics"),
+    ("polymorphism", "inheritance"),
+    ("abstraction", "encapsulation"),
+    ("java_collections", "java_basics"),
+    ("java_exceptions", "java_basics"),
+    ("java_memory", "java_basics"),
+    ("java_multithreading", "java_memory"),
+]
+
 RESOURCES = [
     {
         "title": "SQL Joins Explained", "provider": "MDN-style reference", "url": "https://example-docs.careerpilot.ai/sql/joins",
@@ -399,5 +469,882 @@ RESOURCES = [
         "resource_type": "article", "concept": "dict_operations", "skill": "Python", "difficulty": 1, "duration_minutes": 8,
         "quality_score": 0.85, "cost": "free",
         "description": "Lookup, iteration, mutation, and safe access patterns for dict.",
+    },
+]
+
+NEW_QUESTIONS = [
+    # ---- JavaScript ----
+    {
+        "domain": "javascript", "concept": "js_fundamentals", "question_type": "multiple_choice", "difficulty": 1,
+        "prompt": "Which keyword declares a variable that CANNOT be reassigned after its initial value is set?",
+        "options": [{"id": "a", "text": "var"}, {"id": "b", "text": "let"}, {"id": "c", "text": "const"}, {"id": "d", "text": "static"}],
+        "correct_answer": {"correct_option_ids": ["c"]},
+        "explanation": "`const` creates a binding that cannot be reassigned (the value itself can still be mutated if it's an object/array).",
+        "target_role_relevance": ["JavaScript", "Frontend Engineer"],
+    },
+    {
+        "domain": "javascript", "concept": "js_fundamentals", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What does `===` check in JavaScript that `==` does not?",
+        "options": [
+            {"id": "a", "text": "It also checks that the types match, without coercing either operand"},
+            {"id": "b", "text": "It checks object identity (same memory reference) for all types"},
+            {"id": "c", "text": "It is faster but functionally identical to =="},
+            {"id": "d", "text": "It only works on numbers"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "`===` is strict equality: no type coercion happens, so `1 === '1'` is false while `1 == '1'` is true.",
+        "target_role_relevance": ["JavaScript", "Frontend Engineer"],
+    },
+    {
+        "domain": "javascript", "concept": "js_fundamentals", "question_type": "concept_explanation", "difficulty": 4,
+        "prompt": "What does `typeof null` evaluate to in JavaScript, and why is this considered a long-standing language bug?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["object", "bug", "legacy", "type tag"],
+            "sample_answer": "`typeof null` returns 'object', which is a bug dating back to JavaScript's original type-tagging "
+            "implementation; null is not actually an object, but the behavior can't be fixed now without breaking "
+            "existing code on the web.",
+        },
+        "explanation": "A correct answer names the actual 'object' result and explains it's a historical implementation quirk, not a logical object.",
+        "target_role_relevance": ["JavaScript"],
+    },
+    {
+        "domain": "javascript", "concept": "js_functions", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "What is a closure in JavaScript?",
+        "options": [
+            {"id": "a", "text": "A function that has no parameters"},
+            {"id": "b", "text": "A function that remembers and can access variables from its outer scope even after that scope has returned"},
+            {"id": "c", "text": "A syntax error caused by an unclosed bracket"},
+            {"id": "d", "text": "A method that closes a database connection"},
+        ],
+        "correct_answer": {"correct_option_ids": ["b"]},
+        "explanation": "A closure is formed when an inner function retains access to its enclosing function's variables after the outer function has finished executing.",
+        "target_role_relevance": ["JavaScript", "Frontend Engineer"],
+    },
+    {
+        "domain": "javascript", "concept": "js_functions", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "With `var`, a variable declared anywhere in a function is accessible (as `undefined`) even before its declaration line runs. What is this behavior called?",
+        "options": [{"id": "a", "text": "Currying"}, {"id": "b", "text": "Hoisting"}, {"id": "c", "text": "Memoization"}, {"id": "d", "text": "Binding"}],
+        "correct_answer": {"correct_option_ids": ["b"]},
+        "explanation": "Hoisting moves variable (and function) declarations to the top of their scope during compilation; `var` declarations are initialized to `undefined`, while `let`/`const` are hoisted but left in a 'temporal dead zone'.",
+        "target_role_relevance": ["JavaScript"],
+    },
+    {
+        "domain": "javascript", "concept": "js_functions", "question_type": "code_reading", "difficulty": 4,
+        "prompt": "In a `for (var i = 0; i < 3; i++) { setTimeout(() => console.log(i), 0); }` loop, what gets logged, and why would changing `var` to `let` fix it to log 0, 1, 2?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["3", "3 3 3", "let", "block scope", "new binding"],
+            "sample_answer": "With var it logs 3, 3, 3 because var is function-scoped and all callbacks share the same final i; "
+            "let creates a new block-scoped binding of i for each loop iteration, so each callback captures its own i.",
+        },
+        "explanation": "This is the classic var-in-a-loop closure pitfall, fixed by let's per-iteration scoping.",
+        "target_role_relevance": ["JavaScript", "Frontend Engineer"],
+    },
+    {
+        "domain": "javascript", "concept": "js_arrays_objects", "question_type": "multiple_choice", "difficulty": 1,
+        "prompt": "Which array method returns a NEW array by applying a function to every element, without modifying the original array?",
+        "options": [{"id": "a", "text": "forEach"}, {"id": "b", "text": "map"}, {"id": "c", "text": "push"}, {"id": "d", "text": "sort"}],
+        "correct_answer": {"correct_option_ids": ["b"]},
+        "explanation": "`map` returns a new array of the same length with each element transformed; `forEach` returns undefined.",
+        "target_role_relevance": ["JavaScript"],
+    },
+    {
+        "domain": "javascript", "concept": "js_arrays_objects", "question_type": "short_answer", "difficulty": 3,
+        "prompt": "What does `[1, 2, 3].reduce((acc, cur) => acc + cur, 0)` evaluate to?",
+        "options": None,
+        "correct_answer": {"keywords": ["6"], "sample_answer": "6"},
+        "explanation": "reduce accumulates: 0+1=1, 1+2=3, 3+3=6.",
+        "target_role_relevance": ["JavaScript"],
+    },
+    {
+        "domain": "javascript", "concept": "js_arrays_objects", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What does the spread operator do in `const copy = [...original];`?",
+        "options": [
+            {"id": "a", "text": "Creates a shallow copy of the original array's elements into a new array"},
+            {"id": "b", "text": "Makes `copy` a reference to the same array as `original`"},
+            {"id": "c", "text": "Sorts the array before copying"},
+            {"id": "d", "text": "Throws an error unless original is an object"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Spread expands the iterable's elements into a new array literal, producing a shallow copy.",
+        "target_role_relevance": ["JavaScript"],
+    },
+    {
+        "domain": "javascript", "concept": "js_async", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "What does a JavaScript Promise represent?",
+        "options": [
+            {"id": "a", "text": "A value that is always immediately available"},
+            {"id": "b", "text": "An eventual result (success or failure) of an asynchronous operation"},
+            {"id": "c", "text": "A synchronous loop construct"},
+            {"id": "d", "text": "A type of array"},
+        ],
+        "correct_answer": {"correct_option_ids": ["b"]},
+        "explanation": "A Promise is an object representing the eventual completion or failure of an async operation and its resulting value.",
+        "target_role_relevance": ["JavaScript", "Backend Engineer"],
+    },
+    {
+        "domain": "javascript", "concept": "js_async", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What is the main practical difference between chaining `.then()` calls and using `async/await` for the same Promise-based logic?",
+        "options": [
+            {"id": "a", "text": "async/await is just syntactic sugar over Promises that reads more like synchronous code"},
+            {"id": "b", "text": "async/await runs code synchronously on a separate thread"},
+            {"id": "c", "text": ".then() cannot handle errors at all"},
+            {"id": "d", "text": "They cannot be mixed in the same codebase"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "async/await is built on Promises -- it doesn't change the underlying async model, just how the control flow reads and how errors are caught (try/catch instead of .catch()).",
+        "target_role_relevance": ["JavaScript", "Backend Engineer"],
+    },
+    {
+        "domain": "javascript", "concept": "js_async", "question_type": "concept_explanation", "difficulty": 5,
+        "prompt": "Explain the JavaScript event loop: how do the call stack, the task (macrotask) queue, and the microtask queue interact?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["call stack", "microtask", "macrotask", "queue", "event loop"],
+            "sample_answer": "JavaScript runs on a single thread with a call stack; synchronous code runs immediately. Async callbacks "
+            "(from Promises) go into the microtask queue, while things like setTimeout go into the macrotask queue. "
+            "The event loop only pulls a new task from either queue once the call stack is empty, and it drains "
+            "the entire microtask queue before running the next macrotask.",
+        },
+        "explanation": "This distinguishes JS's cooperative single-threaded concurrency model from true parallelism.",
+        "target_role_relevance": ["JavaScript", "Backend Engineer"],
+    },
+    {
+        "domain": "javascript", "concept": "js_dom_events", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "What does `document.querySelector('.missing')` return if no element matches the selector?",
+        "options": [{"id": "a", "text": "null"}, {"id": "b", "text": "undefined"}, {"id": "c", "text": "An empty array"}, {"id": "d", "text": "It throws an error"}],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "querySelector returns null when nothing matches, so callers should always null-check before using the result.",
+        "target_role_relevance": ["JavaScript", "Frontend Engineer"],
+    },
+    {
+        "domain": "javascript", "concept": "js_dom_events", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What is 'event bubbling' in the DOM?",
+        "options": [
+            {"id": "a", "text": "An event fired on a child element also propagates upward and fires on its ancestor elements"},
+            {"id": "b", "text": "Multiple events firing simultaneously and colliding"},
+            {"id": "c", "text": "A performance optimization that batches DOM updates"},
+            {"id": "d", "text": "A CSS animation technique"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "By default, most DOM events bubble from the target element up through its ancestors, which is why event delegation on a parent works.",
+        "target_role_relevance": ["JavaScript", "Frontend Engineer"],
+    },
+    {
+        "domain": "javascript", "concept": "js_dom_events", "question_type": "short_answer", "difficulty": 4,
+        "prompt": "What is the difference between `event.stopPropagation()` and `event.preventDefault()`?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["stop propagation", "bubbling", "default action", "prevent default"],
+            "sample_answer": "stopPropagation() stops the event from bubbling further up (or capturing down) the DOM tree, while "
+            "preventDefault() stops the browser's default action for that event (like a link navigating or a form submitting) without affecting propagation.",
+        },
+        "explanation": "These solve two different problems and are often confused.",
+        "target_role_relevance": ["JavaScript", "Frontend Engineer"],
+    },
+
+    # ---- DSA ----
+    {
+        "domain": "dsa", "concept": "complexity", "question_type": "multiple_choice", "difficulty": 1,
+        "prompt": "What is the time complexity of accessing an element in an array by its index?",
+        "options": [{"id": "a", "text": "O(1)"}, {"id": "b", "text": "O(log n)"}, {"id": "c", "text": "O(n)"}, {"id": "d", "text": "O(n^2)"}],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Arrays store elements contiguously, so the address of any index can be computed directly -- constant time.",
+        "target_role_relevance": ["Data Structures", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "complexity", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What is the time complexity of binary search on a sorted array of size n?",
+        "options": [{"id": "a", "text": "O(1)"}, {"id": "b", "text": "O(log n)"}, {"id": "c", "text": "O(n)"}, {"id": "d", "text": "O(n log n)"}],
+        "correct_answer": {"correct_option_ids": ["b"]},
+        "explanation": "Binary search halves the search space on each comparison, giving logarithmic time complexity.",
+        "target_role_relevance": ["Algorithms", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "complexity", "question_type": "concept_explanation", "difficulty": 4,
+        "prompt": "Quicksort's average-case time complexity is O(n log n), but its worst case is O(n^2). Why?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["pivot", "unbalanced", "already sorted", "partition"],
+            "sample_answer": "Quicksort's performance depends on how balanced the partitions are around the chosen pivot. On average, "
+            "a random pivot splits the array roughly in half each time, giving O(n log n). In the worst case (e.g. "
+            "always picking the smallest or largest element as pivot, such as on an already-sorted array with a naive "
+            "pivot choice), each partition only removes one element, degrading to O(n^2).",
+        },
+        "explanation": "Tests understanding of average vs. worst-case analysis, not just memorized complexities.",
+        "target_role_relevance": ["Algorithms", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "arrays_strings", "question_type": "multiple_choice", "difficulty": 1,
+        "prompt": "What is the amortized time complexity of inserting an element at the end of a dynamic array (e.g. Python list, Java ArrayList)?",
+        "options": [{"id": "a", "text": "O(1) amortized"}, {"id": "b", "text": "O(n) always"}, {"id": "c", "text": "O(log n)"}, {"id": "d", "text": "O(n^2)"}],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Occasional resizing costs O(n), but because resizes double the capacity, the average (amortized) cost per insertion is O(1).",
+        "target_role_relevance": ["Data Structures", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "arrays_strings", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "Given a SORTED array, which technique finds a pair of numbers summing to a target value in O(n) time and O(1) extra space?",
+        "options": [
+            {"id": "a", "text": "Two-pointer technique (one pointer from each end, moving inward)"},
+            {"id": "b", "text": "Sorting the array again"},
+            {"id": "c", "text": "Checking every pair with a nested loop"},
+            {"id": "d", "text": "Using recursion with memoized subsets"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "On a sorted array, moving two pointers inward based on whether the current sum is too high or too low finds the pair in a single O(n) pass.",
+        "target_role_relevance": ["Algorithms", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "arrays_strings", "question_type": "short_answer", "difficulty": 3,
+        "prompt": "Name one way to check if a string is a palindrome in O(n) time.",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["two pointer", "reverse", "compare", "start end"],
+            "sample_answer": "Use two pointers starting at the beginning and end of the string, moving inward and comparing "
+            "characters at each step; if all pairs match, it's a palindrome. (Reversing the string and comparing to the original also works.)",
+        },
+        "explanation": "A classic warm-up interview question.",
+        "target_role_relevance": ["Algorithms"],
+    },
+    {
+        "domain": "dsa", "concept": "linked_lists", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "What is the main advantage of a linked list over an array for frequent insertions and deletions in the MIDDLE of the collection?",
+        "options": [
+            {"id": "a", "text": "Insertion/deletion is O(1) once you have a reference to the node, with no shifting of other elements"},
+            {"id": "b", "text": "Linked lists use less memory per element"},
+            {"id": "c", "text": "Linked lists support O(1) random access by index"},
+            {"id": "d", "text": "Linked lists are always faster to iterate than arrays"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Arrays require shifting subsequent elements on insert/delete; linked lists just re-point a few pointers, at the cost of losing O(1) indexed access.",
+        "target_role_relevance": ["Data Structures", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "linked_lists", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What is the standard technique to detect a cycle in a linked list using O(1) extra space?",
+        "options": [
+            {"id": "a", "text": "Floyd's cycle detection (slow/fast 'tortoise and hare' pointers)"},
+            {"id": "b", "text": "Storing every visited node in a hash set"},
+            {"id": "c", "text": "Reversing the list and checking if it changes"},
+            {"id": "d", "text": "Sorting the node values"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "A slow pointer moves one step and a fast pointer moves two steps; if there's a cycle, they eventually meet -- using O(1) extra space instead of a hash set's O(n).",
+        "target_role_relevance": ["Data Structures", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "linked_lists", "question_type": "short_answer", "difficulty": 4,
+        "prompt": "What is the time complexity of accessing the k-th element in a singly linked list, and why?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["O(n)", "traverse", "no random access", "sequential"],
+            "sample_answer": "O(n), because a linked list has no random access -- you must traverse from the head, following "
+            "next pointers one node at a time, until you reach the k-th node.",
+        },
+        "explanation": "Contrasts directly with an array's O(1) indexed access.",
+        "target_role_relevance": ["Data Structures"],
+    },
+    {
+        "domain": "dsa", "concept": "stacks_queues", "question_type": "multiple_choice", "difficulty": 1,
+        "prompt": "Which data structure follows Last-In-First-Out (LIFO) ordering?",
+        "options": [{"id": "a", "text": "Queue"}, {"id": "b", "text": "Stack"}, {"id": "c", "text": "Linked list"}, {"id": "d", "text": "Hash map"}],
+        "correct_answer": {"correct_option_ids": ["b"]},
+        "explanation": "A stack's push/pop both happen at the same end, so the most recently added item is removed first.",
+        "target_role_relevance": ["Data Structures"],
+    },
+    {
+        "domain": "dsa", "concept": "stacks_queues", "question_type": "concept_explanation", "difficulty": 3,
+        "prompt": "How can you implement a queue (FIFO) using two stacks (LIFO)?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["two stacks", "reverse", "in stack", "out stack"],
+            "sample_answer": "Use an 'in' stack for enqueue operations. For dequeue, if the 'out' stack is empty, pop everything from "
+            "'in' and push it onto 'out' (which reverses the order), then pop from 'out'. This amortizes to O(1) per operation.",
+        },
+        "explanation": "A well-known interview question testing whether a candidate understands both structures' semantics.",
+        "target_role_relevance": ["Data Structures", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "stacks_queues", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "Which of these is a classic real-world use case for a stack?",
+        "options": [
+            {"id": "a", "text": "A print job spooler processing jobs in the order they were submitted"},
+            {"id": "b", "text": "The 'undo' feature in a text editor"},
+            {"id": "c", "text": "A round-robin CPU scheduler"},
+            {"id": "d", "text": "A breadth-first search of a graph"},
+        ],
+        "correct_answer": {"correct_option_ids": ["b"]},
+        "explanation": "Undo history is LIFO -- the most recent action is the first one undone; the other options are all FIFO/queue-based.",
+        "target_role_relevance": ["Data Structures"],
+    },
+    {
+        "domain": "dsa", "concept": "trees_graphs", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "In a BINARY tree, what is the maximum number of children a single node can have?",
+        "options": [{"id": "a", "text": "1"}, {"id": "b", "text": "2"}, {"id": "c", "text": "3"}, {"id": "d", "text": "Unlimited"}],
+        "correct_answer": {"correct_option_ids": ["b"]},
+        "explanation": "By definition, a binary tree node has at most a left child and a right child.",
+        "target_role_relevance": ["Data Structures"],
+    },
+    {
+        "domain": "dsa", "concept": "trees_graphs", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What is the key difference between Breadth-First Search (BFS) and Depth-First Search (DFS) on a graph?",
+        "options": [
+            {"id": "a", "text": "BFS explores level by level using a queue; DFS explores as deep as possible first using a stack/recursion"},
+            {"id": "b", "text": "BFS only works on trees, DFS only works on graphs"},
+            {"id": "c", "text": "DFS always finds the shortest path; BFS does not"},
+            {"id": "d", "text": "They always visit nodes in the exact same order"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "BFS's queue naturally explores nearer nodes first (useful for shortest paths in unweighted graphs); DFS's stack/recursion dives deep before backtracking.",
+        "target_role_relevance": ["Algorithms", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "trees_graphs", "question_type": "multiple_choice", "difficulty": 4,
+        "prompt": "What is the time complexity of BFS on a graph with V vertices and E edges (using an adjacency list)?",
+        "options": [{"id": "a", "text": "O(V)"}, {"id": "b", "text": "O(E)"}, {"id": "c", "text": "O(V + E)"}, {"id": "d", "text": "O(V * E)"}],
+        "correct_answer": {"correct_option_ids": ["c"]},
+        "explanation": "Every vertex is visited once and every edge is examined once, giving O(V + E).",
+        "target_role_relevance": ["Algorithms", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "trees_graphs", "question_type": "concept_explanation", "difficulty": 5,
+        "prompt": "Explain how a Binary Search Tree (BST) achieves O(log n) search time, and what causes that to degrade to O(n).",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["balanced", "unbalanced", "skewed", "left right", "height"],
+            "sample_answer": "A BST keeps left-subtree values smaller and right-subtree values larger than each node, so each "
+            "comparison eliminates half the remaining nodes -- O(log n) when the tree is roughly balanced (height "
+            "~log n). If elements are inserted in sorted order with no rebalancing, the tree degenerates into a "
+            "linked list (height ~n), making search O(n). Self-balancing trees (AVL, Red-Black) fix this.",
+        },
+        "explanation": "Tests whether the student understands the balance assumption behind the usual O(log n) claim.",
+        "target_role_relevance": ["Data Structures", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "sorting_searching", "question_type": "multiple_choice", "difficulty": 1,
+        "prompt": "Which of these sorting algorithms has the best WORST-CASE time complexity?",
+        "options": [{"id": "a", "text": "Bubble sort -- O(n^2)"}, {"id": "b", "text": "Selection sort -- O(n^2)"}, {"id": "c", "text": "Merge sort -- O(n log n)"}, {"id": "d", "text": "Insertion sort -- O(n^2)"}],
+        "correct_answer": {"correct_option_ids": ["c"]},
+        "explanation": "Merge sort guarantees O(n log n) in every case because it always splits the array in half and merges, regardless of input order.",
+        "target_role_relevance": ["Algorithms"],
+    },
+    {
+        "domain": "dsa", "concept": "sorting_searching", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What is the space complexity of the standard (non-in-place) merge sort implementation?",
+        "options": [{"id": "a", "text": "O(1)"}, {"id": "b", "text": "O(log n)"}, {"id": "c", "text": "O(n)"}, {"id": "d", "text": "O(n^2)"}],
+        "correct_answer": {"correct_option_ids": ["c"]},
+        "explanation": "Merge sort needs an auxiliary array of size n to merge the sorted halves.",
+        "target_role_relevance": ["Algorithms"],
+    },
+    {
+        "domain": "dsa", "concept": "sorting_searching", "question_type": "short_answer", "difficulty": 4,
+        "prompt": "Why can't binary search be used directly on an unsorted array?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["sorted", "assumption", "eliminate half", "order"],
+            "sample_answer": "Binary search relies on the array being sorted so that comparing the target to the middle element "
+            "tells you which half to discard; on unsorted data that assumption breaks and you can't safely eliminate either half.",
+        },
+        "explanation": "Tests understanding of WHY the algorithm works, not just its complexity.",
+        "target_role_relevance": ["Algorithms"],
+    },
+
+    # ---- OOP ----
+    {
+        "domain": "oop", "concept": "oop_basics", "question_type": "multiple_choice", "difficulty": 1,
+        "prompt": "What is the difference between a class and an object?",
+        "options": [
+            {"id": "a", "text": "A class is a blueprint/template; an object is a specific instance created from that blueprint"},
+            {"id": "b", "text": "They are exactly the same thing with different names"},
+            {"id": "c", "text": "A class can only exist inside an object"},
+            {"id": "d", "text": "An object is a blueprint; a class is an instance of it"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "A class defines the structure and behavior; an object is a concrete instance of that class in memory.",
+        "target_role_relevance": ["Object-Oriented Programming", "Software Engineer"],
+    },
+    {
+        "domain": "oop", "concept": "oop_basics", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What is a constructor used for in object-oriented programming?",
+        "options": [
+            {"id": "a", "text": "To destroy an object when it's no longer needed"},
+            {"id": "b", "text": "To initialize a newly created object's state"},
+            {"id": "c", "text": "To convert one class into another"},
+            {"id": "d", "text": "To define which methods are private"},
+        ],
+        "correct_answer": {"correct_option_ids": ["b"]},
+        "explanation": "A constructor runs automatically when an object is created, setting up its initial fields/state.",
+        "target_role_relevance": ["Object-Oriented Programming"],
+    },
+    {
+        "domain": "oop", "concept": "oop_basics", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "What does the `this` (Java/JS/C++) or `self` (Python) keyword refer to inside an instance method?",
+        "options": [
+            {"id": "a", "text": "The class itself, not any particular instance"},
+            {"id": "b", "text": "The specific object instance the method was called on"},
+            {"id": "c", "text": "A random object of the same type"},
+            {"id": "d", "text": "The parent class"},
+        ],
+        "correct_answer": {"correct_option_ids": ["b"]},
+        "explanation": "`this`/`self` is a reference to the specific instance on which the method is currently executing.",
+        "target_role_relevance": ["Object-Oriented Programming"],
+    },
+    {
+        "domain": "oop", "concept": "encapsulation", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "What is encapsulation in object-oriented programming?",
+        "options": [
+            {"id": "a", "text": "Bundling data and the methods that operate on it together, while restricting direct outside access to that data"},
+            {"id": "b", "text": "Creating multiple classes that inherit from one base class"},
+            {"id": "c", "text": "Writing a function that calls itself"},
+            {"id": "d", "text": "Converting an object to a string"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Encapsulation hides an object's internal state and only exposes a controlled interface for interacting with it.",
+        "target_role_relevance": ["Object-Oriented Programming", "Software Engineer"],
+    },
+    {
+        "domain": "oop", "concept": "encapsulation", "question_type": "concept_explanation", "difficulty": 3,
+        "prompt": "Why do we make class fields private and expose getters/setters instead of just making the fields public?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["validation", "control", "invariant", "internal representation"],
+            "sample_answer": "Private fields with getters/setters let the class validate changes, enforce invariants, and change its "
+            "internal representation later without breaking code that uses the class -- public fields give up all of that control.",
+        },
+        "explanation": "Tests the practical motivation behind encapsulation, not just its definition.",
+        "target_role_relevance": ["Object-Oriented Programming", "Software Engineer"],
+    },
+    {
+        "domain": "oop", "concept": "encapsulation", "question_type": "short_answer", "difficulty": 4,
+        "prompt": "What is the difference between the `private` and `protected` access modifiers?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["subclass", "same class", "inherit", "accessible"],
+            "sample_answer": "private members are only accessible within the class that declares them; protected members are "
+            "additionally accessible from subclasses (and often the same package/module), letting inherited classes reuse internal state.",
+        },
+        "explanation": "A common confusion point for beginners.",
+        "target_role_relevance": ["Object-Oriented Programming"],
+    },
+    {
+        "domain": "oop", "concept": "inheritance", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "What does it mean for class `Dog` to 'inherit' from class `Animal`?",
+        "options": [
+            {"id": "a", "text": "Dog automatically gets Animal's fields and methods, and can add or override its own"},
+            {"id": "b", "text": "Animal is deleted once Dog is created"},
+            {"id": "c", "text": "Dog and Animal must have identical method implementations"},
+            {"id": "d", "text": "Animal can now access Dog's private fields"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Inheritance lets a subclass reuse and extend a superclass's behavior, modeling an 'is-a' relationship.",
+        "target_role_relevance": ["Object-Oriented Programming", "Software Engineer"],
+    },
+    {
+        "domain": "oop", "concept": "inheritance", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What is the key difference between single and multiple inheritance?",
+        "options": [
+            {"id": "a", "text": "Single inheritance means a class extends exactly one parent; multiple inheritance means it can extend more than one"},
+            {"id": "b", "text": "Multiple inheritance means a class can only have one method"},
+            {"id": "c", "text": "They are the same in every programming language"},
+            {"id": "d", "text": "Single inheritance is only used in interfaces"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Some languages (like Java for classes) restrict inheritance to a single parent specifically to avoid ambiguity from multiple inheritance.",
+        "target_role_relevance": ["Object-Oriented Programming", "Java"],
+    },
+    {
+        "domain": "oop", "concept": "inheritance", "question_type": "concept_explanation", "difficulty": 4,
+        "prompt": "What is the 'diamond problem' in multiple inheritance, and how does Java avoid it for classes?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["ambiguous", "two parents", "common ancestor", "interfaces", "single inheritance"],
+            "sample_answer": "The diamond problem occurs when a class inherits from two classes that both inherit from a common "
+            "ancestor, creating ambiguity about which inherited method/field version to use. Java avoids it for classes by only "
+            "allowing single inheritance (`extends` one class), while still allowing multiple interface implementation, where "
+            "conflicts must be resolved explicitly.",
+        },
+        "explanation": "A classic OOP design-tradeoff question.",
+        "target_role_relevance": ["Object-Oriented Programming", "Java"],
+    },
+    {
+        "domain": "oop", "concept": "polymorphism", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "What is polymorphism in object-oriented programming?",
+        "options": [
+            {"id": "a", "text": "The ability for objects of different classes to be treated through a common interface, with each responding in its own way"},
+            {"id": "b", "text": "The practice of having only one class in an application"},
+            {"id": "c", "text": "A way to permanently delete unused classes"},
+            {"id": "d", "text": "A synonym for encapsulation"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Polymorphism means 'many forms' -- the same method call can produce different behavior depending on the actual object's type.",
+        "target_role_relevance": ["Object-Oriented Programming", "Software Engineer"],
+    },
+    {
+        "domain": "oop", "concept": "polymorphism", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What is the difference between method OVERLOADING and method OVERRIDING?",
+        "options": [
+            {"id": "a", "text": "Overloading defines multiple methods with the same name but different parameters in the same class; overriding redefines a parent method's behavior in a subclass"},
+            {"id": "b", "text": "They are two names for exactly the same feature"},
+            {"id": "c", "text": "Overriding can only happen within the same class"},
+            {"id": "d", "text": "Overloading requires inheritance; overriding does not"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Overloading is compile-time (same class, different signatures); overriding is runtime (subclass replaces inherited behavior).",
+        "target_role_relevance": ["Object-Oriented Programming", "Java"],
+    },
+    {
+        "domain": "oop", "concept": "polymorphism", "question_type": "concept_explanation", "difficulty": 4,
+        "prompt": "What is the difference between compile-time (static) polymorphism and run-time (dynamic) polymorphism?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["overloading", "overriding", "compile time", "runtime", "virtual"],
+            "sample_answer": "Compile-time polymorphism (method overloading) is resolved by the compiler based on the method "
+            "signature at compile time. Run-time polymorphism (method overriding) is resolved at runtime based on the "
+            "actual object type, typically via virtual method dispatch -- which concrete method runs depends on what the object actually is, not its declared type.",
+        },
+        "explanation": "Tests whether the student understands WHEN each kind of polymorphism is resolved.",
+        "target_role_relevance": ["Object-Oriented Programming", "Java"],
+    },
+    {
+        "domain": "oop", "concept": "abstraction", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "What is an abstract class, and why can't it be instantiated directly?",
+        "options": [
+            {"id": "a", "text": "It defines a partial blueprint (possibly with unimplemented methods) meant to be completed by a subclass, so instantiating it directly wouldn't make sense"},
+            {"id": "b", "text": "It's a class that has been deleted from memory"},
+            {"id": "c", "text": "It's just a regular class with a different naming convention"},
+            {"id": "d", "text": "It can actually be instantiated directly like any other class"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Abstract classes may declare methods without implementations, so the language forbids creating an instance until a concrete subclass fills in the gaps.",
+        "target_role_relevance": ["Object-Oriented Programming"],
+    },
+    {
+        "domain": "oop", "concept": "abstraction", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What is the key difference between an abstract class and an interface (in languages that distinguish them)?",
+        "options": [
+            {"id": "a", "text": "An abstract class can have some concrete (implemented) methods and shared state; a traditional interface only declares a contract with no shared state"},
+            {"id": "b", "text": "Interfaces can be instantiated directly, abstract classes cannot"},
+            {"id": "c", "text": "There is no meaningful difference in any language"},
+            {"id": "d", "text": "A class can implement multiple abstract classes but only one interface"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Abstract classes support partial implementation and instance fields; interfaces (classically) are pure contracts, and a class can implement several of them.",
+        "target_role_relevance": ["Object-Oriented Programming", "Java"],
+    },
+    {
+        "domain": "oop", "concept": "abstraction", "question_type": "short_answer", "difficulty": 4,
+        "prompt": "Why is abstraction considered important for managing complexity in large codebases?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["hide detail", "interface", "complexity", "implementation"],
+            "sample_answer": "Abstraction lets callers depend on a simple, stable interface without needing to understand (or being "
+            "affected by changes to) the implementation details behind it, which keeps large systems easier to reason about and change safely.",
+        },
+        "explanation": "Connects the OOP concept to real software-engineering motivation.",
+        "target_role_relevance": ["Object-Oriented Programming", "Software Engineer"],
+    },
+
+    # ---- Java ----
+    {
+        "domain": "java", "concept": "java_basics", "question_type": "multiple_choice", "difficulty": 1,
+        "prompt": "What is the relationship between the JDK, the JRE, and the JVM?",
+        "options": [
+            {"id": "a", "text": "JVM runs bytecode; JRE bundles the JVM plus core libraries to RUN Java programs; JDK adds development tools (compiler, etc.) on top of the JRE"},
+            {"id": "b", "text": "They are three unrelated, independent products"},
+            {"id": "c", "text": "JDK is only for running programs; JRE is only for compiling them"},
+            {"id": "d", "text": "JVM is a text editor for writing Java code"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "JVM executes bytecode, JRE = JVM + standard libraries needed to run apps, JDK = JRE + compiler/tools needed to build apps.",
+        "target_role_relevance": ["Java", "Software Engineer"],
+    },
+    {
+        "domain": "java", "concept": "java_basics", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "Is Java 'pass by value' or 'pass by reference' when you pass an object to a method?",
+        "options": [
+            {"id": "a", "text": "Pass by value -- but the value being copied is the object reference itself, so the method can still mutate the object's fields"},
+            {"id": "b", "text": "Pass by reference -- reassigning the parameter inside the method changes the caller's variable"},
+            {"id": "c", "text": "It depends on whether the object is a String"},
+            {"id": "d", "text": "Java doesn't allow passing objects to methods"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Java is strictly pass-by-value; for objects, the 'value' passed is a copy of the reference, which is why mutating fields works but reassigning the parameter doesn't affect the caller.",
+        "target_role_relevance": ["Java"],
+    },
+    {
+        "domain": "java", "concept": "java_basics", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What is the difference between `==` and `.equals()` when comparing two Java String objects?",
+        "options": [
+            {"id": "a", "text": "== compares object references (identity); .equals() compares the actual character content"},
+            {"id": "b", "text": "They always behave identically for Strings"},
+            {"id": "c", "text": ".equals() compares references; == compares content"},
+            {"id": "d", "text": "== only works on primitive types and never compiles for Strings"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "== checks if two references point to the same object in memory; .equals() (when properly overridden, as String does) checks logical/content equality.",
+        "target_role_relevance": ["Java"],
+    },
+    {
+        "domain": "java", "concept": "java_collections", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "What is the key practical difference between an `ArrayList` and a `LinkedList` in Java?",
+        "options": [
+            {"id": "a", "text": "ArrayList gives O(1) indexed access but O(n) middle insertion; LinkedList gives O(1) insertion at a known node but O(n) indexed access"},
+            {"id": "b", "text": "LinkedList is always faster for every operation"},
+            {"id": "c", "text": "ArrayList cannot store objects, only primitives"},
+            {"id": "d", "text": "There is no practical difference"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "This mirrors the general array-vs-linked-list trade-off (see the DSA domain) applied to Java's standard library.",
+        "target_role_relevance": ["Java", "Data Structures"],
+    },
+    {
+        "domain": "java", "concept": "java_collections", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What is the main difference between a `HashMap` and a `TreeMap` in Java?",
+        "options": [
+            {"id": "a", "text": "HashMap offers average O(1) lookup with no ordering guarantee; TreeMap keeps keys sorted at the cost of O(log n) operations"},
+            {"id": "b", "text": "TreeMap cannot store more than one entry"},
+            {"id": "c", "text": "HashMap always iterates in insertion order"},
+            {"id": "d", "text": "They have identical performance characteristics"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "HashMap is backed by a hash table (fast, unordered); TreeMap is backed by a red-black tree (sorted, logarithmic).",
+        "target_role_relevance": ["Java", "Data Structures"],
+    },
+    {
+        "domain": "java", "concept": "java_collections", "question_type": "concept_explanation", "difficulty": 4,
+        "prompt": "Why must an object used as a `HashMap` key correctly override BOTH `hashCode()` and `equals()`?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["hashcode", "equals", "bucket", "contract", "consistent"],
+            "sample_answer": "HashMap uses hashCode() to pick a bucket and equals() to confirm a match within that bucket. If two "
+            "'equal' objects return different hashCode() values, HashMap may look in the wrong bucket and fail to find an entry that's "
+            "actually there -- violating the required hashCode/equals contract.",
+        },
+        "explanation": "A very common Java interview question that tests real understanding of hash-table internals.",
+        "target_role_relevance": ["Java", "Data Structures"],
+    },
+    {
+        "domain": "java", "concept": "java_exceptions", "question_type": "multiple_choice", "difficulty": 1,
+        "prompt": "What is the difference between a CHECKED and an UNCHECKED exception in Java?",
+        "options": [
+            {"id": "a", "text": "Checked exceptions must be declared or caught at compile time; unchecked exceptions (RuntimeException and subclasses) are not enforced by the compiler"},
+            {"id": "b", "text": "Unchecked exceptions can only occur in checked methods"},
+            {"id": "c", "text": "They are identical; 'checked' is just older terminology"},
+            {"id": "d", "text": "Checked exceptions can never be caught"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "The compiler forces callers to handle or declare checked exceptions (e.g. IOException); unchecked exceptions (e.g. NullPointerException) are not enforced.",
+        "target_role_relevance": ["Java"],
+    },
+    {
+        "domain": "java", "concept": "java_exceptions", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What is the purpose of the `finally` block in Java exception handling?",
+        "options": [
+            {"id": "a", "text": "It runs regardless of whether an exception was thrown or caught, typically used for cleanup like closing resources"},
+            {"id": "b", "text": "It only runs if no exception occurred"},
+            {"id": "c", "text": "It replaces the need for a catch block entirely"},
+            {"id": "d", "text": "It runs before the try block"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "finally guarantees cleanup code (closing files, releasing locks) runs whether the try block succeeded, failed, or even returned early.",
+        "target_role_relevance": ["Java"],
+    },
+    {
+        "domain": "java", "concept": "java_exceptions", "question_type": "short_answer", "difficulty": 3,
+        "prompt": "Why is catching the generic `Exception` class considered bad practice in most situations?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["swallow", "specific", "hide bugs", "unrelated errors"],
+            "sample_answer": "Catching Exception broadly swallows unrelated error types you didn't anticipate (including real bugs), "
+            "hiding problems instead of handling them meaningfully -- catching specific exception types lets you respond appropriately to each failure mode.",
+        },
+        "explanation": "Common code-review feedback in real engineering teams.",
+        "target_role_relevance": ["Java", "Software Engineer"],
+    },
+    {
+        "domain": "java", "concept": "java_memory", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "In Java, where are local primitive variables and method call frames typically stored, versus where objects themselves live?",
+        "options": [
+            {"id": "a", "text": "Local variables/call frames live on the stack; objects (created with `new`) live on the heap"},
+            {"id": "b", "text": "Everything is stored on the stack"},
+            {"id": "c", "text": "Everything is stored on the heap"},
+            {"id": "d", "text": "Objects live on the stack; primitives live on the heap"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "The stack holds per-call local variables and references; the actual objects those references point to are allocated on the heap.",
+        "target_role_relevance": ["Java"],
+    },
+    {
+        "domain": "java", "concept": "java_memory", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What makes an object eligible for garbage collection in Java?",
+        "options": [
+            {"id": "a", "text": "It is no longer reachable from any live thread or static reference"},
+            {"id": "b", "text": "It has existed for more than 60 seconds"},
+            {"id": "c", "text": "The programmer calls `delete` on it"},
+            {"id": "d", "text": "It has more than one field"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Java's garbage collector reclaims objects once nothing in the program can reach them anymore -- there's no manual `delete`.",
+        "target_role_relevance": ["Java"],
+    },
+    {
+        "domain": "java", "concept": "java_memory", "question_type": "concept_explanation", "difficulty": 4,
+        "prompt": "What is a 'memory leak' in Java, and how can one still happen despite automatic garbage collection?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["reachable", "unused reference", "static", "cache", "listener"],
+            "sample_answer": "A memory leak happens when objects are no longer actually needed by the program but are still "
+            "reachable (e.g. held in a static collection, an unremoved event listener, or a growing cache), so the garbage collector "
+            "can never reclaim them, and memory usage keeps growing.",
+        },
+        "explanation": "Tests understanding that GC only frees UNREACHABLE memory, not unused memory.",
+        "target_role_relevance": ["Java", "Software Engineer"],
+    },
+    {
+        "domain": "java", "concept": "java_multithreading", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "What is the key difference between a process and a thread?",
+        "options": [
+            {"id": "a", "text": "A process has its own isolated memory space; threads within the same process share that memory space"},
+            {"id": "b", "text": "A thread always runs in its own memory space, isolated from other threads"},
+            {"id": "c", "text": "Processes and threads are the same thing in Java"},
+            {"id": "d", "text": "A process can only ever have one thread"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Threads are lighter-weight units of execution that share their parent process's memory, which is why they can communicate easily but also risk race conditions.",
+        "target_role_relevance": ["Java", "Software Engineer"],
+    },
+    {
+        "domain": "java", "concept": "java_multithreading", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What does the `synchronized` keyword do in Java?",
+        "options": [
+            {"id": "a", "text": "Ensures only one thread at a time can execute the guarded block/method for a given lock, preventing concurrent access to shared state"},
+            {"id": "b", "text": "Makes a method run faster by parallelizing it automatically"},
+            {"id": "c", "text": "Deletes a thread once it finishes"},
+            {"id": "d", "text": "Converts a method into a static method"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "synchronized acquires a monitor lock so that only one thread can be inside the critical section for that lock at a time.",
+        "target_role_relevance": ["Java"],
+    },
+    {
+        "domain": "java", "concept": "java_multithreading", "question_type": "concept_explanation", "difficulty": 5,
+        "prompt": "What is a race condition, and how does synchronization prevent it?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["concurrent", "shared state", "unpredictable", "lock", "interleave"],
+            "sample_answer": "A race condition occurs when two or more threads access and modify shared state concurrently, and the "
+            "final result depends unpredictably on the exact timing/interleaving of their operations. Synchronization prevents this by "
+            "ensuring only one thread can execute the critical section at a time, making the shared-state updates atomic from other threads' perspective.",
+        },
+        "explanation": "One of the most commonly asked concurrency questions in technical interviews.",
+        "target_role_relevance": ["Java", "Software Engineer"],
+    },
+]
+
+# Extra questions on EXISTING sql/python concepts (from the original
+# 298c98dafbbb migration) -- referenced by (domain_slug, concept_slug) so the
+# follow-up migration can look up their already-existing concept_id in the DB
+# rather than creating new concepts.
+EXTRA_QUESTIONS_EXISTING = [
+    {
+        "domain": "sql", "concept": "joins", "question_type": "multiple_choice", "difficulty": 4,
+        "prompt": "What does a SELF JOIN let you do that a regular join cannot?",
+        "options": [
+            {"id": "a", "text": "Join a table to itself, e.g. to compare rows within the same table (like an employee to their manager, stored in the same employees table)"},
+            {"id": "b", "text": "Join more than two tables at once"},
+            {"id": "c", "text": "Join without specifying an ON condition"},
+            {"id": "d", "text": "Avoid using a WHERE clause"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "A self join treats one table as two logical copies (via aliases) to relate rows to other rows in the same table.",
+        "target_role_relevance": ["SQL", "Data Analyst"],
+    },
+    {
+        "domain": "sql", "concept": "indexes", "question_type": "multiple_choice", "difficulty": 4,
+        "prompt": "Which SQL clause's columns should you typically consider indexing first for a performance win?",
+        "options": [
+            {"id": "a", "text": "Columns frequently used in WHERE filters and JOIN conditions"},
+            {"id": "b", "text": "Columns that are never queried"},
+            {"id": "c", "text": "Every column in the table, without exception"},
+            {"id": "d", "text": "Only columns storing large text blobs"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Indexes speed up lookups on the columns actually used to filter or join rows; indexing rarely-queried columns wastes write performance and storage for no benefit.",
+        "target_role_relevance": ["SQL", "Backend Engineer"],
+    },
+    {
+        "domain": "sql", "concept": "normalization", "question_type": "short_answer", "difficulty": 3,
+        "prompt": "What does '3rd Normal Form' (3NF) additionally require beyond 2NF?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["transitive dependency", "non-key", "depends on"],
+            "sample_answer": "3NF removes transitive dependencies: every non-key column must depend only on the primary key, not on another non-key column.",
+        },
+        "explanation": "Tests whether the student knows the specific rule added at each normal form, not just 'normalization is good'.",
+        "target_role_relevance": ["SQL"],
+    },
+    {
+        "domain": "sql", "concept": "aggregate_functions", "question_type": "multiple_choice", "difficulty": 2,
+        "prompt": "What does `AVG(column)` ignore that could otherwise skew the result?",
+        "options": [
+            {"id": "a", "text": "NULL values -- they are excluded from both the sum and the count used to compute the average"},
+            {"id": "b", "text": "Negative numbers"},
+            {"id": "c", "text": "Duplicate rows"},
+            {"id": "d", "text": "Nothing -- it always includes every row"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Like most aggregate functions, AVG ignores NULLs -- they don't count toward the sum or the divisor.",
+        "target_role_relevance": ["SQL", "Data Analyst"],
+    },
+    {
+        "domain": "python", "concept": "functions", "question_type": "short_answer", "difficulty": 4,
+        "prompt": "What is the difference between `*args` and `**kwargs` in a Python function signature?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["positional", "keyword", "tuple", "dict"],
+            "sample_answer": "*args collects any extra positional arguments into a tuple; **kwargs collects any extra keyword "
+            "arguments into a dict, letting a function accept a variable number of arguments of either kind.",
+        },
+        "explanation": "A frequently misunderstood but very common Python interview topic.",
+        "target_role_relevance": ["Python"],
+    },
+    {
+        "domain": "python", "concept": "data_types", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "Why can a `tuple` be used as a dictionary key in Python, but a `list` cannot?",
+        "options": [
+            {"id": "a", "text": "Tuples are immutable and hashable; lists are mutable and therefore unhashable"},
+            {"id": "b", "text": "Tuples are faster to create than lists"},
+            {"id": "c", "text": "Lists can only hold one type of data"},
+            {"id": "d", "text": "There is no actual restriction -- both work identically"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Dictionary keys must be hashable; Python won't let mutable types like list be hashable because their hash would change if mutated, breaking the hash table.",
+        "target_role_relevance": ["Python"],
+    },
+    {
+        "domain": "python", "concept": "list_comprehension", "question_type": "short_answer", "difficulty": 3,
+        "prompt": "Write (or describe) a list comprehension that produces only the EVEN numbers from 0 to 9.",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["if", "% 2", "even", "range"],
+            "sample_answer": "[x for x in range(10) if x % 2 == 0] -- iterates 0-9 and keeps only values where the remainder after dividing by 2 is 0.",
+        },
+        "explanation": "Tests the conditional-filter form of a comprehension, not just the basic transform form.",
+        "target_role_relevance": ["Python"],
+    },
+    {
+        "domain": "python", "concept": "exceptions", "question_type": "multiple_choice", "difficulty": 3,
+        "prompt": "What is the main risk of writing a bare `except:` (with no exception type specified) in Python?",
+        "options": [
+            {"id": "a", "text": "It catches EVERYTHING, including KeyboardInterrupt and SystemExit, silently hiding bugs and making the program hard to stop or debug"},
+            {"id": "b", "text": "It only catches ValueError"},
+            {"id": "c", "text": "Python doesn't allow this syntax at all"},
+            {"id": "d", "text": "It automatically logs the error to a file"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "A bare except catches every exception, including ones you almost never want to swallow silently -- catching specific exception types is safer practice.",
+        "target_role_relevance": ["Python", "Software Engineer"],
     },
 ]

@@ -42,16 +42,28 @@ interface SubmitAnswerInput {
   typedAnswerText?: string;
   audioBlob?: Blob | null;
   audioDurationSeconds?: number;
+  usedBrowserTranscription?: boolean;
+  cameraOnRatio?: number | null;
 }
 
 export function useSubmitInterviewAnswer() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ sessionId, questionId, typedAnswerText, audioBlob, audioDurationSeconds }: SubmitAnswerInput) => {
+    mutationFn: ({
+      sessionId,
+      questionId,
+      typedAnswerText,
+      audioBlob,
+      audioDurationSeconds,
+      usedBrowserTranscription,
+      cameraOnRatio,
+    }: SubmitAnswerInput) => {
       const form = new FormData();
       form.append("question_id", questionId);
       if (typedAnswerText) form.append("typed_answer_text", typedAnswerText);
       if (audioDurationSeconds !== undefined) form.append("audio_duration_seconds", String(audioDurationSeconds));
+      if (usedBrowserTranscription) form.append("used_browser_transcription", "true");
+      if (cameraOnRatio !== undefined && cameraOnRatio !== null) form.append("camera_on_ratio", String(cameraOnRatio));
       if (audioBlob) form.append("audio", audioBlob, "answer.webm");
       return api.post<InterviewProgressOut>(`/interviews/sessions/${sessionId}/answers`, form, { isFormData: true });
     },

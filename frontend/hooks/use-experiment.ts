@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import type { AllocationRequest, ExperimentScenarioOut } from "@/types/api";
+import type {
+  AllocationRequest,
+  ExperimentScenarioOut,
+  PredictionAccuracyOut,
+  TargetPlanOut,
+  TargetPlanRequest,
+} from "@/types/api";
 
 export function useActivityTypes() {
   return useQuery({
@@ -42,5 +48,19 @@ export function useCompareScenarios(scenarioIds: string[]) {
       return api.get<ExperimentScenarioOut[]>(`/experiments/compare?${params.toString()}`);
     },
     enabled: scenarioIds.length > 0,
+  });
+}
+
+export function usePlanTarget() {
+  return useMutation({
+    mutationFn: (input: TargetPlanRequest) => api.post<TargetPlanOut>("/experiments/target-plan", input),
+  });
+}
+
+export function usePredictionAccuracy(scenarioId: string | null) {
+  return useQuery({
+    queryKey: ["experiment-prediction-accuracy", scenarioId],
+    queryFn: () => api.get<PredictionAccuracyOut>(`/experiments/scenarios/${scenarioId}/prediction-accuracy`),
+    enabled: !!scenarioId,
   });
 }

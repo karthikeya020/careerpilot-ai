@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Sparkles, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -70,9 +70,20 @@ function OnboardingForm() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-foreground">Set up your Career Twin</h1>
-        <p className="mt-1 text-sm text-muted">
+      <div
+        className="animate-fade-up relative mb-6 overflow-hidden rounded-[var(--radius-xl)] border border-border p-8"
+        style={{ background: "radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--brand-2) 20%, transparent), transparent 45%), var(--color-background)" }}
+      >
+        <div className="relative flex items-center gap-3">
+          <span
+            className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)]"
+            style={{ background: "linear-gradient(135deg, var(--brand), var(--accent-2))" }}
+          >
+            <Sparkles className="h-5 w-5 text-white" aria-hidden="true" />
+          </span>
+          <h1 className="text-h1 text-foreground">Set up your Career Twin</h1>
+        </div>
+        <p className="relative mt-3 max-w-xl text-sm text-muted">
           This takes about two minutes and creates your first evidence-backed readiness snapshot.
         </p>
       </div>

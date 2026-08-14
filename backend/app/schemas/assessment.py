@@ -11,6 +11,9 @@ class AssessmentDomainOut(BaseModel):
     slug: str
     name: str
     description: str
+    question_count: int = 0
+    recommended: bool = False
+    matched_skills: list[str] = []
 
 
 class QuestionOut(BaseModel):
@@ -24,6 +27,7 @@ class QuestionOut(BaseModel):
     prompt: str
     options: list | None
     difficulty: int
+    difficulty_band: str
     concept_name: str
 
 
@@ -46,6 +50,7 @@ class QuestionResponseOut(BaseModel):
     is_correct: bool | None
     score: float | None
     ai_evaluated: bool
+    explanation: str = ""
 
 
 class AttemptProgressOut(BaseModel):
@@ -53,6 +58,9 @@ class AttemptProgressOut(BaseModel):
     response: QuestionResponseOut | None = None
     next_question: QuestionOut | None
     is_complete: bool
+    domain_exhausted: bool = False
+    answered_in_domain: int = 0
+    total_in_domain: int = 0
 
 
 class AssessmentAttemptOut(BaseModel):
@@ -65,3 +73,52 @@ class AssessmentAttemptOut(BaseModel):
     confidence: float | None
     started_at: datetime
     completed_at: datetime | None
+
+
+class ActivityDayOut(BaseModel):
+    date: str
+    count: int
+    correct_count: int
+
+
+class ActivityDayDetailOut(BaseModel):
+    response_id: uuid.UUID
+    question_id: uuid.UUID
+    prompt: str
+    domain_name: str
+    concept_name: str
+    difficulty: int
+    difficulty_band: str
+    question_type: str
+    is_correct: bool | None
+    score: float | None
+    submitted_at: datetime
+
+
+class DomainAccuracyOut(BaseModel):
+    domain: str
+    accuracy: float
+    answered: int
+
+
+class DifficultyAccuracyOut(BaseModel):
+    band: str
+    accuracy: float
+    answered: int
+
+
+class ScoreTrendPointOut(BaseModel):
+    date: str
+    avg_score: float
+
+
+class AssessmentAnalyticsOut(BaseModel):
+    total_answered: int
+    total_correct: int
+    overall_accuracy: float | None
+    accuracy_by_domain: list[DomainAccuracyOut]
+    accuracy_by_difficulty: list[DifficultyAccuracyOut]
+    score_trend: list[ScoreTrendPointOut]
+    current_streak_days: int
+    longest_streak_days: int
+    active_day_count: int

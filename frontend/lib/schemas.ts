@@ -38,6 +38,29 @@ export const onboardingSchema = z.object({
 });
 export type OnboardingFormValues = z.infer<typeof onboardingSchema>;
 
+export const COLLEGE_YEAR_OPTIONS = [
+  { value: "1st_year", label: "1st year" },
+  { value: "2nd_year", label: "2nd year" },
+  { value: "3rd_year", label: "3rd year" },
+  { value: "4th_year", label: "4th year" },
+  { value: "5th_year", label: "5th year" },
+  { value: "graduated", label: "Graduated" },
+] as const;
+
+export const profileDetailsSchema = z.object({
+  full_name: z.string().min(1, "Enter your full name"),
+  date_of_birth: z.string().optional().or(z.literal("")),
+  college_year: z.enum(["1st_year", "2nd_year", "3rd_year", "4th_year", "5th_year", "graduated"]).optional().or(z.literal("")),
+  branch: z.string().max(150).optional().or(z.literal("")),
+  github_username: z
+    .string()
+    .max(39)
+    .regex(/^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/, "Enter a valid GitHub username")
+    .optional()
+    .or(z.literal("")),
+});
+export type ProfileDetailsFormValues = z.infer<typeof profileDetailsSchema>;
+
 export const jobDescriptionSchema = z.object({
   title: z.string().min(1, "Enter a job title"),
   company: z.string().optional(),

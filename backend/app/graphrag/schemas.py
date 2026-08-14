@@ -1,3 +1,4 @@
+import uuid
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -45,3 +46,92 @@ class GraphSnapshot(BaseModel):
     graph_source: GraphSource
     nodes: list[GraphNode]
     edges: list[GraphEdge]
+
+
+ConceptStatus = Literal["strong", "developing", "weak", "unknown"]
+
+
+class ConceptNodeOut(BaseModel):
+    slug: str
+    name: str
+    domain_slug: str
+    domain_name: str
+    skill_name: str | None = None
+    mastery: float | None = None
+    confidence: float | None = None
+    status: ConceptStatus
+    evidence_count: int
+    depth: int
+    is_target_role_relevant: bool = False
+
+
+class ConceptEdgeOut(BaseModel):
+    source: str
+    target: str
+
+
+class SkillGroupOut(BaseModel):
+    name: str
+    concept_slugs: list[str]
+
+
+class ConceptInsightOut(BaseModel):
+    concept_slug: str
+    concept_name: str
+    domain_name: str
+    status: ConceptStatus
+    mastery: float | None
+    confidence: float | None
+    evidence_count: int
+    reasoning: str
+    depends_on: list[str]
+    blocks: list[str]
+    target_role_relevant: bool
+    recommended_resource: dict | None = None
+    practice_available: bool
+    questions_answered: int
+    questions_total: int
+
+
+class StudentGraphOverviewOut(BaseModel):
+    graph_source: GraphSource
+    nodes: list[ConceptNodeOut]
+    edges: list[ConceptEdgeOut]
+    skills: list[SkillGroupOut]
+    strengths: list[ConceptInsightOut]
+    weaknesses: list[ConceptInsightOut]
+    concepts_with_evidence: int
+    total_concepts: int
+    overall_mastery: float | None
+    target_role_title: str | None
+
+
+# ---- Embedded practice (answer questions for a weak concept without ever
+# leaving the GraphRAG page) ----
+
+
+class PracticeQuestionOut(BaseModel):
+    id: uuid.UUID
+    question_type: str
+    prompt: str
+    options: list | None
+    difficulty: int
+    difficulty_band: str
+
+
+class PracticeProgressOut(BaseModel):
+    attempt_id: uuid.UUID
+    concept_slug: str
+    is_correct: bool | None = None
+    score: float | None = None
+    explanation: str = ""
+    next_question: PracticeQuestionOut | None
+    is_complete: bool
+    answered_in_concept: int
+    total_in_concept: int
+
+
+class PracticeAnswerRequest(BaseModel):
+    question_id: uuid.UUID
+    response_payload: dict
+    time_spent_seconds: int | None = None

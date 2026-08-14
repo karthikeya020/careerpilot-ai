@@ -12,6 +12,7 @@ import json
 from typing import ClassVar
 
 from app.agents.base import Agent, AgentInput, AgentOutput
+from app.agents.confidence import rubric_confidence
 from app.ai.registry import get_chat_provider
 from app.ai.schemas import ChatMessage, StructuredChatRequest
 
@@ -73,7 +74,7 @@ class AssessmentAgent(Agent[AssessmentGradingInput, AssessmentGradingOutput]):
             deterministic_fn=_deterministic_keyword_grading,
         )
         result = provider.complete_structured(request)
-        confidence = 0.55 if result.is_fallback else 0.8
+        confidence = rubric_confidence(keyword_count=len(agent_input.keywords), is_fallback=result.is_fallback)
         return AssessmentGradingOutput(
             confidence=confidence,
             evidence_ids=[],

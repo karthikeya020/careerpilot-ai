@@ -92,3 +92,103 @@ def test_ablation_suite_endpoint_reports_all_six_seams(client) -> None:
     assert body["harness_version"] == "ablation-v1"
     assert len(body["ablations"]) == 6
     assert client.post("/api/v1/research/experiments/ablations").status_code == 401
+
+
+def test_efficiency_frontier_reports_real_latency_for_all_three_conditions(client) -> None:
+    headers = _register_and_auth(client, email="efficiency-frontier@example.com")
+    response = client.post("/api/v1/research/experiments/efficiency-frontier", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["case_count"] == 4
+    conditions = {row["condition"] for row in body["frontier"]}
+    assert conditions == {"single_agent_fixed", "multi_agent_fixed", "care_adaptive"}
+    for row in body["frontier"]:
+        assert row["mean_latency_ms"] >= 0
+        assert row["mean_llm_calls"] >= 1
+        assert 0.0 <= row["accuracy"] <= 1.0
+    assert "no live api key" in body["cost_note"].lower() or "$0" in body["cost_note"]
+    assert client.post("/api/v1/research/experiments/efficiency-frontier").status_code == 401
+
+
+def test_threshold_tuning_sweeps_and_reports_current_defaults(client) -> None:
+    headers = _register_and_auth(client, email="threshold-tuning@example.com")
+    response = client.post("/api/v1/research/experiments/threshold-tuning", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["combinations_swept"] > 0
+    assert body["current_defaults"]["single_agent_threshold"] == 0.80
+    assert 0.0 <= body["current_defaults"]["agreement_rate"] <= 1.0
+    assert body["empirical_best"] is not None
+    assert body["current_defaults_tied_for_best"] is True  # documented defaults already tie for optimal on this rubric
+
+
+def test_adversarial_suite_runs_real_agents_against_hostile_inputs(client) -> None:
+    headers = _register_and_auth(client, email="adversarial-suite@example.com")
+    response = client.post("/api/v1/research/experiments/adversarial", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["case_count"] == 5
+    case_ids = {c["case_id"] for c in body["cases"]}
+    assert "prompt-injection-in-resume" in case_ids
+    assert "prompt-injection-in-answer" in case_ids
+    injection_case = next(c for c in body["cases"] if c["case_id"] == "prompt-injection-in-resume")
+    assert injection_case["passed"] is True
+    assert injection_case["classification"] != "supported"
+
+
+def test_fallback_fidelity_honestly_reports_not_measurable_without_a_live_key(client) -> None:
+    headers = _register_and_auth(client, email="fallback-fidelity@example.com")
+    response = client.post("/api/v1/research/experiments/fallback-fidelity", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["measurable"] is False
+    assert "no live provider key" in body["message"].lower()
+
+
+def test_fairness_probe_measures_real_phrasing_sensitivity(client) -> None:
+    headers = _register_and_auth(client, email="fairness-probe@example.com")
+    response = client.post("/api/v1/research/experiments/fairness-probe", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["pair_count"] == 2
+    assert "not a claim" in body["disclaimer"].lower() or "not bias-free" in body["disclaimer"].lower() or "bias-free" in body["disclaimer"].lower()
+    assert "identity" in body["disclaimer"].lower()
+
+
+def test_drift_canary_compares_against_a_frozen_baseline(client) -> None:
+    headers = _register_and_auth(client, email="drift-canary@example.com")
+    response = client.post("/api/v1/research/experiments/drift-canary", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["case_count"] == 3
+    assert body["any_drifted"] is False
+    for case in body["cases"]:
+        assert abs(case["confidence_drift"]) <= body["tolerance"]
+
+
+def test_live_critic_toggle_shows_a_real_confidence_delta_for_typed_input(client) -> None:
+    headers = _register_and_auth(client, email="live-critic-toggle@example.com")
+    response = client.post(
+        "/api/v1/research/experiments/live-critic-toggle",
+        headers=headers,
+        json={"transcript": "Indexes are good."},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["critic_off_confidence"] != body["critic_on_confidence"]
+    assert body["delta"] == round(body["critic_on_confidence"] - body["critic_off_confidence"], 4)
+    assert client.post("/api/v1/research/experiments/live-critic-toggle", json={"transcript": "x"}).status_code == 401
+
+
+def test_research_report_bundles_every_section(client) -> None:
+    headers = _register_and_auth(client, email="research-report@example.com")
+    response = client.get("/api/v1/research/report", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["report_version"] == "research-report-v1"
+    for section in (
+        "calibration", "ablations", "efficiency_frontier", "threshold_tuning",
+        "adversarial_suite", "fallback_fidelity", "fairness_probe", "drift_canary",
+    ):
+        assert section in body and body[section] is not None
+    assert client.get("/api/v1/research/report").status_code == 401

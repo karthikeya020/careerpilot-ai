@@ -5,10 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import InterviewPage from "@/app/interview/page";
 import type { DashboardOut, InterviewProgressOut, JobDescriptionOut } from "@/types/api";
 
-const { getMock, postMock, pushMock } = vi.hoisted(() => ({
+const { getMock, postMock, pushMock, searchParamsMock } = vi.hoisted(() => ({
   getMock: vi.fn(),
   postMock: vi.fn(),
   pushMock: vi.fn(),
+  searchParamsMock: vi.fn(() => new URLSearchParams()),
 }));
 
 vi.mock("@/lib/api-client", async () => {
@@ -20,6 +21,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock, replace: vi.fn() }),
   usePathname: () => "/interview",
   useParams: () => ({}),
+  useSearchParams: () => searchParamsMock(),
 }));
 
 vi.mock("@/lib/auth-context", () => ({
@@ -65,7 +67,10 @@ const PROGRESS: InterviewProgressOut = {
     order_index: 0,
     mode: "technical",
     prompt: "Explain INNER JOIN vs LEFT JOIN.",
+    difficulty: "medium",
     question_source: "bank",
+    is_follow_up: false,
+    follow_up_rationale: null,
   },
   is_complete: false,
 };
@@ -83,6 +88,7 @@ beforeEach(() => {
   getMock.mockReset();
   postMock.mockReset();
   pushMock.mockReset();
+  searchParamsMock.mockReturnValue(new URLSearchParams());
 });
 
 describe("InterviewPage", () => {
@@ -122,9 +128,31 @@ describe("InterviewPage", () => {
         mode: "technical",
         target_role_id: null,
         job_description_id: null,
+        company_name: null,
       }),
     );
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/interview/session-1"));
     expect(technicalCard).toBeTruthy();
+  });
+
+  it("auto-starts a company-context interview when deep-linked from a tracked Job Match dream job", async () => {
+    searchParamsMock.mockReturnValue(new URLSearchParams("mode=company_context&company=Google"));
+    getMock.mockImplementation((path: string) => {
+      if (path === "/dashboard") return Promise.resolve(DASHBOARD_NO_ROLE);
+      if (path === "/job-descriptions") return Promise.resolve(JOB_DESCRIPTIONS);
+      return Promise.resolve(null);
+    });
+    postMock.mockResolvedValueOnce(PROGRESS);
+    renderPage();
+
+    await waitFor(() =>
+      expect(postMock).toHaveBeenCalledWith("/interviews/sessions", {
+        mode: "company_context",
+        target_role_id: null,
+        job_description_id: null,
+        company_name: "Google",
+      }),
+    );
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/interview/session-1"));
   });
 });

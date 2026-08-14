@@ -1,0 +1,35 @@
+{
+  "version": "canary-v2",
+  "frozen_at": "2026-08-07",
+  "engine": "TechnicalAgent (technical-interview-v1)",
+  "note": "Frozen golden outputs, checked in once. Re-run whenever the model/prompt version changes so silent scoring drift gets caught instead of shipping unnoticed -- see app/evaluation/drift_canary.py. Re-frozen 2026-08-07: confidence is now computed from real signal (rubric richness + sub-score agreement, app/agents/confidence.py) instead of a flat 0.55/0.85 constant tied only to the fallback/live branch -- see docs/implementation/CURRENT_CHECKPOINT.md 'TRL assessment + anti-fabrication audit'. correctness_score/depth_score are unchanged (that computation wasn't touched); only confidence values below changed, deliberately, not silently.",
+  "cases": [
+    {
+      "case_id": "strong-index-tradeoffs",
+      "question_prompt": "Explain the tradeoffs of adding a database index.",
+      "transcript": "An index speeds up lookups, however it adds write overhead and storage cost -- for example a heavily-indexed table slows down inserts because every write has to update each index too.",
+      "expected_keywords": ["index", "trade-off", "overhead"],
+      "baseline_confidence": 0.4938,
+      "baseline_correctness_score": 0.6667,
+      "baseline_depth_score": 0.8334
+    },
+    {
+      "case_id": "thin-index-answer",
+      "question_prompt": "Explain the tradeoffs of adding a database index.",
+      "transcript": "Indexes are good for speed.",
+      "expected_keywords": ["index", "trade-off", "overhead"],
+      "baseline_confidence": 0.4998,
+      "baseline_correctness_score": 0.3333,
+      "baseline_depth_score": 0.3667
+    },
+    {
+      "case_id": "strong-normalization",
+      "question_prompt": "What is database normalization?",
+      "transcript": "Normalization structures tables to reduce redundancy -- for example splitting a table into smaller related tables linked by foreign keys, however over-normalizing can hurt read performance.",
+      "expected_keywords": ["redundancy", "foreign key", "normalization"],
+      "baseline_confidence": 0.5,
+      "baseline_correctness_score": 1.0,
+      "baseline_depth_score": 1.0
+    }
+  ]
+}

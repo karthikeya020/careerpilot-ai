@@ -28,7 +28,19 @@ def _evidence_sufficient(factors: RoutingFactors) -> bool:
     return factors.evidence_count >= factors.min_evidence_for_confidence and factors.evidence_quality >= 0.5
 
 
-def decide_route(factors: RoutingFactors) -> CareRoute:
+def decide_route(
+    factors: RoutingFactors,
+    single_agent_threshold: float = SINGLE_AGENT_CONFIDENCE_THRESHOLD,
+    multi_agent_threshold: float = MULTI_AGENT_CONFIDENCE_THRESHOLD,
+    human_review_threshold: float = HUMAN_REVIEW_CONFIDENCE_THRESHOLD,
+) -> CareRoute:
+    """The three optional threshold parameters default to the production
+    constants above -- every existing caller that doesn't pass them gets
+    identical behavior. They exist solely so
+    app/evaluation/threshold_tuning.py can empirically sweep candidate
+    threshold values against the real routing logic instead of maintaining
+    a second, parallel copy of this function (Constitution rule 1: one
+    scoring/routing path, not two)."""
     if factors.deterministic_eligible and factors.task_risk == "low" and not factors.evidence_conflict:
         return "deterministic"
 
@@ -46,7 +58,7 @@ def decide_route(factors: RoutingFactors) -> CareRoute:
 
     should_escalate_to_multi_agent = (
         not factors.multi_agent_attempted
-        and (factors.evidence_conflict or effective_confidence < MULTI_AGENT_CONFIDENCE_THRESHOLD)
+        and (factors.evidence_conflict or effective_confidence < multi_agent_threshold)
         and (factors.agent_confidence is not None or factors.evidence_conflict)
     )
     if should_escalate_to_multi_agent:
@@ -60,7 +72,7 @@ def decide_route(factors: RoutingFactors) -> CareRoute:
 
     is_high_risk_ambiguous = factors.task_risk == "high" and effective_confidence < HIGH_RISK_CONFIDENCE_THRESHOLD
     should_recommend_human_review = (
-        (effective_confidence < HUMAN_REVIEW_CONFIDENCE_THRESHOLD or is_high_risk_ambiguous)
+        (effective_confidence < human_review_threshold or is_high_risk_ambiguous)
         and (factors.agent_confidence is not None or factors.retrieval_attempted)
     )
     if should_recommend_human_review:
@@ -69,7 +81,7 @@ def decide_route(factors: RoutingFactors) -> CareRoute:
         # decision before any evidence-gathering happened.
         return "human_review"
 
-    if effective_confidence >= SINGLE_AGENT_CONFIDENCE_THRESHOLD or _evidence_sufficient(factors):
+    if effective_confidence >= single_agent_threshold or _evidence_sufficient(factors):
         return "single_agent"
 
     return "multi_agent"

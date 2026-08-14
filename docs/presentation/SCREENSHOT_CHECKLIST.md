@@ -4,15 +4,22 @@ Static fallback assets to capture before presenting (see
 `BACKUP_DEMO_PLAN.md` "absolute last resort"). Capture at 1920×1080 in
 both light and dark theme where noted.
 
-**Status as of the 2026-08-05 closure pass**: 9 of 26 items below are
-real, captured image files, committed under `docs/presentation/
-screenshots/` (all captured live against the real Docker stack, logged in
-as the fictional seeded demo account `demo.student@careerpilot.ai` — no
-real person's data). Captured at this browser automation tool's fixed
-viewport (1512×795), not the 1920×1080 the venue may want for a
-projector — re-capture at 1920×1080 before a live event if that matters.
-The remaining 17 are genuinely not captured — **MANUAL ACTION REQUIRED**,
-same as before this pass. Nothing here is claimed done that isn't.
+**Status as of the 2026-08-05 premium visual transformation pass**: 11 of
+28 items below (2 new items added for the new `/graphrag` page) are real,
+captured image files, committed under `docs/presentation/screenshots/`
+(all captured live against the real Docker stack, logged in as the
+fictional seeded demo account `demo.student@careerpilot.ai` — no real
+person's data). Captured at this browser automation tool's fixed viewport
+(1512×795), not the 1920×1080 the venue may want for a projector —
+re-capture at 1920×1080 before a live event if that matters. The
+redesigned Interview Arena, Trust Center execution timeline, Experiment
+Lab result reveal, and Research Lab general/technical toggle were all
+verified live in-browser this pass but not saved as image files — still
+**MANUAL ACTION REQUIRED** for those, same as the rest below. Nothing
+here is claimed done that isn't.
+
+- [x] `/graphrag` empty state (no missed question selected) — `screenshots/graphrag-empty-state.jpg`
+- [x] `/graphrag` live root-cause chain reveal (real Neo4j-backed data) — `screenshots/graphrag-root-cause.jpg`
 
 - [x] `/competition` Opening slide — `screenshots/competition-opening.jpg`
 - [x] `/dashboard` full view (Career Twin summary, mission, priority weakness, CARE activity card) — `screenshots/dashboard.jpg`

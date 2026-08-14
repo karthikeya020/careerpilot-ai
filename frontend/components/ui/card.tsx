@@ -1,13 +1,27 @@
 import { forwardRef, type HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn("rounded-[var(--radius-md)] border border-border bg-surface shadow-sm", className)}
-    {...props}
-  />
-));
+interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  variant?: "default" | "glass" | "glow-brand" | "glow-accent";
+  interactive?: boolean;
+}
+
+const VARIANT_CLASS: Record<NonNullable<CardProps["variant"]>, string> = {
+  default: "card-premium",
+  glass: "card-glass",
+  "glow-brand": "card-premium card-glow-brand",
+  "glow-accent": "card-premium card-glow-accent",
+};
+
+const Card = forwardRef<HTMLDivElement, CardProps>(
+  ({ className, variant = "default", interactive = false, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(VARIANT_CLASS[variant], interactive && "card-premium-hover", className)}
+      {...props}
+    />
+  ),
+);
 Card.displayName = "Card";
 
 const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (

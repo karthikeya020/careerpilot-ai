@@ -45,6 +45,14 @@ class CommunicationInput(AgentInput):
     transcript: str
     audio_duration_seconds: float | None = None
     check_star_structure: bool = False
+    # Fraction (0-1) of the recording where the webcam feed showed a real,
+    # changing image rather than a blank/covered frame -- computed
+    # client-side via simple canvas frame-brightness sampling (see
+    # frontend/hooks/use-audio-recorder.ts). This agent does not compute it
+    # and never turns it into a claim about attention, eye contact, or
+    # confidence -- it's a pure passthrough of an observable presence ratio,
+    # consistent with this module's "never infer emotional state" contract.
+    camera_on_ratio: float | None = None
 
 
 class CommunicationOutput(AgentOutput):
@@ -58,6 +66,7 @@ class CommunicationOutput(AgentOutput):
     clarity_score: float = 0.0
     conciseness_score: float = 0.0
     professional_communication_score: float = 0.0
+    camera_on_ratio: float | None = None
 
 
 def _conciseness(word_count: int) -> float:
@@ -119,12 +128,15 @@ class CommunicationAgent(Agent[CommunicationInput, CommunicationOutput]):
         )
         if speaking_rate_wpm is not None:
             summary += f" Estimated speaking rate {speaking_rate_wpm:.0f} wpm."
+        if agent_input.camera_on_ratio is not None:
+            summary += f" Camera was on for {agent_input.camera_on_ratio:.0%} of the recording."
 
         return CommunicationOutput(
             confidence=0.9,
             evidence_ids=[],
             reasoning_summary=summary,
             inference_type="deterministic_calculation",
+            camera_on_ratio=agent_input.camera_on_ratio,
             word_count=word_count,
             filler_word_count=filler_word_count,
             filler_ratio=filler_ratio,

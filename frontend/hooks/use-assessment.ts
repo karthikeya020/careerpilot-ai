@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import type { AssessmentAttemptOut, AssessmentDomainOut, AttemptProgressOut } from "@/types/api";
+import type {
+  ActivityDayDetailOut,
+  ActivityDayOut,
+  AssessmentAnalyticsOut,
+  AssessmentAttemptOut,
+  AssessmentDomainOut,
+  AttemptProgressOut,
+} from "@/types/api";
 
 export function useAssessmentDomains() {
   return useQuery({
@@ -40,6 +47,8 @@ export function useSubmitResponse() {
         time_spent_seconds: timeSpentSeconds,
       }),
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["assessment-activity"] });
+      queryClient.invalidateQueries({ queryKey: ["assessment-analytics"] });
       if (data.is_complete) {
         queryClient.invalidateQueries({ queryKey: ["dashboard"] });
         queryClient.invalidateQueries({ queryKey: ["career-twin"] });
@@ -54,5 +63,27 @@ export function useAttempt(attemptId: string | null) {
     queryKey: ["assessment-attempt", attemptId],
     queryFn: () => api.get<AssessmentAttemptOut>(`/assessments/attempts/${attemptId}`),
     enabled: !!attemptId,
+  });
+}
+
+export function useActivityCalendar(year: number) {
+  return useQuery({
+    queryKey: ["assessment-activity", year],
+    queryFn: () => api.get<ActivityDayOut[]>(`/assessments/activity-calendar?year=${year}`),
+  });
+}
+
+export function useActivityDay(date: string | null) {
+  return useQuery({
+    queryKey: ["assessment-activity-day", date],
+    queryFn: () => api.get<ActivityDayDetailOut[]>(`/assessments/activity-calendar/${date}`),
+    enabled: !!date,
+  });
+}
+
+export function useAssessmentAnalytics() {
+  return useQuery({
+    queryKey: ["assessment-analytics"],
+    queryFn: () => api.get<AssessmentAnalyticsOut>("/assessments/analytics"),
   });
 }

@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 INTERVIEW_MODE_HR = "hr"
 INTERVIEW_MODE_TECHNICAL = "technical"
+INTERVIEW_MODE_DSA = "dsa"
 INTERVIEW_MODE_RESUME = "resume"
 INTERVIEW_MODE_ROLE_SPECIFIC = "role_specific"
 INTERVIEW_MODE_COMPANY_CONTEXT = "company_context"
@@ -35,17 +36,28 @@ INTERVIEW_MODE_MIXED = "mixed"
 ALL_INTERVIEW_MODES = [
     INTERVIEW_MODE_HR,
     INTERVIEW_MODE_TECHNICAL,
+    INTERVIEW_MODE_DSA,
     INTERVIEW_MODE_RESUME,
     INTERVIEW_MODE_ROLE_SPECIFIC,
     INTERVIEW_MODE_COMPANY_CONTEXT,
     INTERVIEW_MODE_MIXED,
 ]
 
+INTERVIEW_DIFFICULTY_EASY = "easy"
+INTERVIEW_DIFFICULTY_MEDIUM = "medium"
+INTERVIEW_DIFFICULTY_HARD = "hard"
+
 INTERVIEW_STATUS_IN_PROGRESS = "in_progress"
 INTERVIEW_STATUS_COMPLETED = "completed"
 
 TRANSCRIPT_SOURCE_TYPED = "typed"
 TRANSCRIPT_SOURCE_LIVE_STT = "live_stt"
+# Transcribed client-side, in the student's own browser, via the Web Speech
+# API while they spoke -- distinct from TRANSCRIPT_SOURCE_TYPED (hand-typed,
+# no voice involved) and TRANSCRIPT_SOURCE_LIVE_STT (server-side Whisper
+# adapter). Kept distinct so the UI never claims a student typed an answer
+# they actually spoke, or vice versa (Constitution rule 4).
+TRANSCRIPT_SOURCE_BROWSER_STT = "browser_stt"
 TRANSCRIPT_SOURCE_DETERMINISTIC_DEMO = "deterministic_demo"
 TRANSCRIPT_SOURCE_UNAVAILABLE = "unavailable"
 
@@ -98,6 +110,24 @@ class InterviewQuestion(UUIDPKMixin, Base):
     question_source: Mapped[str] = mapped_column(String(30), nullable=False)
     concept_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("concepts.id"), nullable=True)
     expected_keywords: Mapped[list] = mapped_column(JSONBType(), default=list, nullable=False)
+    # "easy" | "medium" | "hard" -- every scripted round is exactly 2 of each
+    # (see interview_service._generate_questions). Safe to expose live
+    # (InterviewQuestionOut) since it doesn't leak the grading rubric.
+    difficulty: Mapped[str] = mapped_column(String(10), default=INTERVIEW_DIFFICULTY_MEDIUM, nullable=False)
+    # A short reference-answer outline for the post-round report. Like
+    # expected_keywords, this is the grading rubric's sibling and must never
+    # appear in the live InterviewQuestionOut schema -- only in the replay/
+    # report response, after the student has already answered.
+    model_answer_summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    # A follow-up is generated after grading the parent's answer (never
+    # upfront, and never chained past one level -- see
+    # interview_service.maybe_insert_follow_up) to probe a specific gap the
+    # grading agents actually found, so it always carries a rationale.
+    is_follow_up: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    parent_question_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), ForeignKey("interview_questions.id", ondelete="CASCADE"), nullable=True
+    )
+    follow_up_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow, nullable=False)
 
     session: Mapped["InterviewSession"] = relationship(back_populates="questions")

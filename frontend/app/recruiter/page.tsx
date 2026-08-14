@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Briefcase } from "lucide-react";
+import { AlertTriangle, Briefcase, ShieldCheck } from "lucide-react";
 import { Protected } from "@/components/layout/protected";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRecruiterCandidates } from "@/hooks/use-role-dashboards";
 import { ApiError } from "@/lib/api-client";
-import { formatPercent } from "@/lib/utils";
+import { cn, formatPercent } from "@/lib/utils";
 
 function RecruiterBody() {
   const { data: candidates, isLoading, isError, error, refetch } = useRecruiterCandidates();
@@ -30,22 +30,29 @@ function RecruiterBody() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold text-foreground">
-          <Briefcase className="h-5 w-5 text-brand" aria-hidden="true" />
-          Recruiter Dashboard
-        </h1>
-        <p className="mt-1 text-sm text-muted">
-          Only students who explicitly opted in to recruiter visibility appear here. No automatic hiring recommendation is ever computed.
+      <div className="animate-fade-up relative overflow-hidden rounded-[var(--radius-xl)] border border-border p-8 md:p-10" style={{ background: "radial-gradient(circle at 15% 80%, color-mix(in srgb, var(--brand-2) 18%, transparent), transparent 45%), var(--color-background)" }}>
+        <div className="relative flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)]" style={{ background: "linear-gradient(135deg, var(--brand-2), var(--brand))" }}>
+            <Briefcase className="h-5 w-5 text-white" aria-hidden="true" />
+          </span>
+          <h1 className="text-h1 text-foreground">Recruiter Dashboard</h1>
+        </div>
+        <p className="relative mt-3 max-w-2xl text-sm text-muted">
+          Only students who explicitly opted in to recruiter visibility appear here. No automatic hiring
+          recommendation is ever computed.
         </p>
+        <div className="relative mt-3 flex items-center gap-1.5 text-xs text-muted">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          Evidence coverage and role alignment only — not a hiring decision.
+        </div>
       </div>
 
       {!candidates || candidates.length === 0 ? (
-        <EmptyState title="No candidates have opted in yet" description="Students choose to share their evidence with recruiters from their Settings page." />
+        <EmptyState icon={Briefcase} title="No candidates have opted in yet" description="Students choose to share their evidence with recruiters from their Settings page." />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {candidates.map((candidate) => (
-            <Card key={candidate.student_profile_id}>
+          {candidates.map((candidate, i) => (
+            <Card key={candidate.student_profile_id} interactive className={cn("animate-fade-up", `delay-${Math.min(i + 1, 8)}`)}>
               <CardHeader>
                 <CardTitle as="h2">{candidate.full_name}</CardTitle>
                 <p className="text-xs text-muted">{candidate.target_role ?? "No target role set"}</p>
@@ -61,7 +68,7 @@ function RecruiterBody() {
                 </div>
                 {candidate.requires_human_review && (
                   <div className="flex items-center gap-1.5 rounded-[var(--radius-md)] border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
-                    <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                     Some evidence for this candidate is flagged for human review.
                   </div>
                 )}

@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.base import utcnow
+
 from app.models.audit import AuditEvent, DecisionTrace
 from app.models.career_twin import (
     ALL_COMPONENTS,
@@ -35,7 +37,7 @@ from app.models.skill import (
     SkillEvidence,
 )
 from app.models.student import StudentProfile
-from app.schemas.career_twin import CareerTwinSnapshotOut, ReadinessComponentOut
+from app.schemas.career_twin import CareerTwinSnapshotOut, ReadinessComponentOut, RippleNoteOut
 from app.services.evidence_service import get_active_skill_evidence
 
 SCORING_RULE_VERSION = "twin-v2"
@@ -89,6 +91,26 @@ CONFLICTING_EVIDENCE_NOTICE = (
     "treat this score as provisional until more consistent evidence accumulates."
 )
 
+# --- twin-v2 evidence-freshness safeguard -------------------------------
+# Same philosophy as the small-sample safeguard above, applied to time
+# instead of sample size: evidence doesn't stay equally trustworthy
+# forever. Each evidence item's contribution to the weighted average decays
+# continuously with age (half-life below), and if a majority of a
+# component's evidence has crossed the staleness threshold, confidence is
+# capped outright and the explanation says so plainly -- never a silent
+# score that quietly drifts stale.
+EVIDENCE_FRESHNESS_HALF_LIFE_DAYS = 180.0  # ~6 months
+EVIDENCE_FRESHNESS_FLOOR = 0.4  # old evidence is still real evidence -- never discounted to zero
+STALE_EVIDENCE_AGE_DAYS = 180.0  # ~6 months, matches the half-life
+STALE_FRACTION_CAP_THRESHOLD = 0.5  # majority of evidence (by count) is stale
+STALE_EVIDENCE_CONFIDENCE_CAP = 0.60
+
+
+def _freshness_multiplier(evidence: SkillEvidence, now) -> float:
+    age_days = max(0.0, (now - evidence.created_at).total_seconds() / 86400)
+    decayed = 0.5 ** (age_days / EVIDENCE_FRESHNESS_HALF_LIFE_DAYS)
+    return max(EVIDENCE_FRESHNESS_FLOOR, decayed)
+
 COMPONENT_EXPLANATIONS_EMPTY = {
     COMPONENT_RESUME: "No resume has been uploaded and parsed yet.",
     COMPONENT_TECHNICAL: "No technical skill evidence found in resume, projects, or self-assessment yet.",
@@ -110,6 +132,8 @@ class ComponentResult:
     explanation: str
     evidence_diversity: int = 0
     is_low_sample: bool = False
+    stale_evidence_fraction: float = 0.0
+    is_stale_evidence: bool = False
 
 
 def _score_component(component_type: str, evidence: list[SkillEvidence]) -> ComponentResult:
@@ -124,11 +148,21 @@ def _score_component(component_type: str, evidence: list[SkillEvidence]) -> Comp
             explanation=COMPONENT_EXPLANATIONS_EMPTY[component_type],
         )
 
-    total_weight = sum(float(e.weight) for e in evidence) or 1.0
-    raw_weighted_score = sum(float(e.normalized_score) * float(e.weight) for e in evidence) / total_weight
-    raw_confidence = sum(float(e.confidence) * float(e.weight) for e in evidence) / total_weight
+    now = utcnow()
+    freshness_by_id = {e.id: _freshness_multiplier(e, now) for e in evidence}
+    effective_weight_by_id = {e.id: float(e.weight) * freshness_by_id[e.id] for e in evidence}
+
+    total_weight = sum(effective_weight_by_id.values()) or 1.0
+    raw_weighted_score = sum(float(e.normalized_score) * effective_weight_by_id[e.id] for e in evidence) / total_weight
+    raw_confidence = sum(float(e.confidence) * effective_weight_by_id[e.id] for e in evidence) / total_weight
     saturation = EVIDENCE_SATURATION[component_type]
     volume_factor = min(1.0, len(evidence) / saturation)
+
+    stale_count = sum(
+        1 for e in evidence if (now - e.created_at).total_seconds() / 86400 >= STALE_EVIDENCE_AGE_DAYS
+    )
+    stale_evidence_fraction = round(stale_count / len(evidence), 4)
+    is_stale_evidence = stale_evidence_fraction > STALE_FRACTION_CAP_THRESHOLD
 
     distinct_sources = len({e.source_object_type for e in evidence})
     diversity_factor = min(1.0, distinct_sources / MIN_SOURCE_DIVERSITY_TARGET)
@@ -150,6 +184,8 @@ def _score_component(component_type: str, evidence: list[SkillEvidence]) -> Comp
     is_low_sample = len(evidence) < MIN_EVIDENCE_FOR_STABLE_CONFIDENCE or distinct_sources < MIN_SOURCE_DIVERSITY_TARGET
     if is_low_sample:
         confidence = min(confidence, LOW_SAMPLE_CONFIDENCE_CAP)
+    if is_stale_evidence:
+        confidence = min(confidence, STALE_EVIDENCE_CONFIDENCE_CAP)
     confidence = round(confidence, 4)
 
     explanation_parts = [
@@ -164,6 +200,11 @@ def _score_component(component_type: str, evidence: list[SkillEvidence]) -> Comp
         explanation_parts.append(f"{CONFLICTING_EVIDENCE_NOTICE} (disagreement {disagreement}).")
     if is_low_sample:
         explanation_parts.append(LOW_SAMPLE_NOTICE)
+    if is_stale_evidence:
+        explanation_parts.append(
+            f"This component's confidence is capped because {round(stale_evidence_fraction * 100)}% "
+            "of its evidence is 6+ months old."
+        )
 
     return ComponentResult(
         component_type=component_type,
@@ -173,6 +214,8 @@ def _score_component(component_type: str, evidence: list[SkillEvidence]) -> Comp
         evidence_count=len(evidence),
         evidence_ids=[str(e.id) for e in evidence],
         explanation=" ".join(explanation_parts),
+        stale_evidence_fraction=stale_evidence_fraction,
+        is_stale_evidence=is_stale_evidence,
         evidence_diversity=distinct_sources,
         is_low_sample=is_low_sample,
     )
@@ -273,6 +316,8 @@ def recompute_twin(db: Session, student_profile: StudentProfile, reason: str) ->
                 evidence_ids=c.evidence_ids,
                 evidence_diversity=c.evidence_diversity,
                 is_low_sample=c.is_low_sample,
+                stale_evidence_fraction=c.stale_evidence_fraction,
+                is_stale_evidence=c.is_stale_evidence,
             )
         )
         all_evidence_ids.extend(c.evidence_ids)
@@ -312,25 +357,76 @@ def recompute_twin(db: Session, student_profile: StudentProfile, reason: str) ->
     return snapshot
 
 
+MILESTONE_SCORE_THRESHOLD = 0.70
+
+
+def _component_provenance(db: Session, evidence_ids: list[str]) -> dict[str, float]:
+    """This component's evidence weight, broken down by evidence_type and
+    normalized to fractions that sum to ~1.0 -- e.g. {"technical_assessment":
+    0.4, "interview": 0.35, "resume": 0.25}. Re-fetches the SkillEvidence
+    rows the component was already scored from (via its stored evidence_ids)
+    rather than storing a duplicate breakdown, same "derived, not stored"
+    pattern as trend/uncertainty above."""
+    if not evidence_ids:
+        return {}
+    ids = [uuid.UUID(eid) for eid in evidence_ids]
+    rows = db.scalars(select(SkillEvidence).where(SkillEvidence.id.in_(ids))).all()
+    weight_by_type: dict[str, float] = {}
+    total = 0.0
+    for row in rows:
+        w = float(row.weight)
+        weight_by_type[row.evidence_type] = weight_by_type.get(row.evidence_type, 0.0) + w
+        total += w
+    if total <= 0:
+        return {}
+    return {k: round(v / total, 4) for k, v in weight_by_type.items()}
+
+
 def build_career_twin_snapshot_out(db: Session, snapshot: CareerTwinSnapshot) -> CareerTwinSnapshotOut:
-    """Attaches per-component `trend` (delta vs. the previous snapshot) and
-    `uncertainty` (1 - confidence) -- both derived from already-stored data,
-    never a new evidence source. See PHASE_2_EXECUTION_PLAN §"Career Twin
-    2.0" for why these are computed on read rather than stored columns."""
-    previous_by_component: dict[str, float | None] = {}
+    """Attaches per-component `trend` (delta vs. the previous snapshot),
+    `uncertainty` (1 - confidence), ripple-effect notes, and an evidence
+    provenance breakdown -- all derived from already-stored data, never a
+    new evidence source. See PHASE_2_EXECUTION_PLAN §"Career Twin 2.0" for
+    why these are computed on read rather than stored columns."""
+    from app.career_twin.ripple import compute_ripple_notes
+
+    previous_components: dict[str, ReadinessComponent] = {}
     if snapshot.previous_snapshot_id is not None:
         previous = db.get(CareerTwinSnapshot, snapshot.previous_snapshot_id)
         if previous is not None:
-            previous_by_component = {
-                c.component_type: (float(c.score) if c.score is not None else None) for c in previous.components
-            }
+            previous_components = {c.component_type: c for c in previous.components}
 
+    ripple_by_component = compute_ripple_notes(
+        db, {c.component_type: c.evidence_ids for c in snapshot.components}
+    )
+
+    milestones: list[str] = []
     components_out = []
     for component in snapshot.components:
         current_score = float(component.score) if component.score is not None else None
-        previous_score = previous_by_component.get(component.component_type)
+        previous_component = previous_components.get(component.component_type)
+        previous_score = (
+            float(previous_component.score)
+            if previous_component is not None and previous_component.score is not None
+            else None
+        )
         trend = round(current_score - previous_score, 4) if current_score is not None and previous_score is not None else None
         uncertainty = round(1 - float(component.confidence), 4) if component.confidence is not None else None
+
+        label = component.component_type.replace("_readiness", "").replace("_", " ").title()
+        if (
+            current_score is not None
+            and current_score >= MILESTONE_SCORE_THRESHOLD
+            and (previous_score is None or previous_score < MILESTONE_SCORE_THRESHOLD)
+        ):
+            milestones.append(f"{label} crossed {int(MILESTONE_SCORE_THRESHOLD * 100)}% readiness for the first time.")
+        if (
+            component.status == STATUS_SCORED
+            and previous_component is not None
+            and previous_component.status == STATUS_INSUFFICIENT_EVIDENCE
+        ):
+            milestones.append(f"{label} now has enough evidence to be scored for the first time.")
+
         components_out.append(
             ReadinessComponentOut(
                 component_type=component.component_type,
@@ -344,6 +440,19 @@ def build_career_twin_snapshot_out(db: Session, snapshot: CareerTwinSnapshot) ->
                 evidence_diversity=component.evidence_diversity,
                 is_low_sample=component.is_low_sample,
                 low_sample_notice=LOW_SAMPLE_NOTICE if component.is_low_sample else None,
+                stale_evidence_fraction=float(component.stale_evidence_fraction),
+                is_stale_evidence=component.is_stale_evidence,
+                stale_evidence_notice=(
+                    f"This component's confidence is capped because "
+                    f"{round(float(component.stale_evidence_fraction) * 100)}% of its evidence is 6+ months old."
+                    if component.is_stale_evidence
+                    else None
+                ),
+                ripple_notes=[
+                    RippleNoteOut(target_component=n.target_component, reason=n.reason)
+                    for n in ripple_by_component.get(component.component_type, [])
+                ],
+                provenance=_component_provenance(db, component.evidence_ids),
             )
         )
 
@@ -358,4 +467,5 @@ def build_career_twin_snapshot_out(db: Session, snapshot: CareerTwinSnapshot) ->
         score_delta=float(snapshot.score_delta) if snapshot.score_delta is not None else None,
         created_at=snapshot.created_at,
         components=components_out,
+        milestones=milestones,
     )
