@@ -132,6 +132,20 @@ npm run dev
 Then open http://localhost:3000 and either register a new account or use
 `/demo` to sign in as the seeded demo student.
 
+## Contributors
+
+### Karthikeya (karthikeya020)
+- Project Founder
+- Lead Developer
+- System Architecture
+- Initial Implementation
+
+### Likhith (Likhith1807)
+- Co-Developer
+- AI/ML Development
+- Feature Engineering
+- Testing & Optimization
+
 ## Development Principle
 
 > No random scores. Every important AI output must be linked to evidence, confidence, provenance, and a decision trace.
