@@ -135,14 +135,14 @@ Then open http://localhost:3000 and either register a new account or use
 ## Contributors
 
 ### Karthikeya (karthikeya020)
-- System Architecture
-- Core Implementation
-- Backend & API Services
-
-### Likhith (Likhith1807)
 - AI/ML Development
 - Feature Engineering
 - Testing & Optimization
+
+### Likhith (Likhith1807)
+- System Architecture
+- Core Implementation
+- Backend & API Services
 
 ## Development Principle
 
