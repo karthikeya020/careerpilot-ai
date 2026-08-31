@@ -134,15 +134,15 @@ Then open http://localhost:3000 and either register a new account or use
 
 ## Contributors
 
-*This project is the result of an equal collaboration between:*
-
 ### Karthikeya (karthikeya020)
-- **Role**: Founder
-- **Key Contributions**: Lead Developer, System Architecture, Initial Implementation
+- System Architecture
+- Core Implementation
+- Backend & API Services
 
 ### Likhith (Likhith1807)
-- **Role**: Co-Developer
-- **Key Contributions**: AI/ML Development, Feature Engineering, Testing & Optimization
+- AI/ML Development
+- Feature Engineering
+- Testing & Optimization
 
 ## Development Principle
 
