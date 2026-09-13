@@ -46,6 +46,7 @@ export interface ProfileDetailsInput {
   college_year?: string | null;
   branch?: string | null;
   github_username?: string | null;
+  leetcode_username?: string | null;
 }
 
 export function useUpdateProfileDetails() {

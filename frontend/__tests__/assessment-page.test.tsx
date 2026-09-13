@@ -12,7 +12,7 @@ const { getMock, postMock } = vi.hoisted(() => ({
 
 vi.mock("@/lib/api-client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api-client")>("@/lib/api-client");
-  return { ...actual, api: { get: getMock, post: postMock, patch: vi.fn(), delete: vi.fn() } };
+  return { ...actual, api: { get: getMock, post: postMock, put: vi.fn(), patch: vi.fn(), delete: vi.fn() } };
 });
 
 vi.mock("next/navigation", () => ({
@@ -136,6 +136,19 @@ function mockHomeEndpoints(domains: AssessmentDomainOut[] = DOMAINS) {
     if (url.startsWith("/assessments/activity-calendar?year=")) return Promise.resolve(ACTIVITY);
     if (url === "/assessments/analytics") return Promise.resolve(ANALYTICS);
     if (url.startsWith("/assessments/activity-calendar/")) return Promise.resolve([]);
+    if (url === "/students/me/leetcode-profile") return Promise.resolve({ status: "not_configured" });
+    if (url === "/assessments/leetcode-recommendations")
+      return Promise.resolve({ source: "profile", summary: "", weakness_threshold: 0.6, groups: [], disclaimer: "" });
+    if (url === "/assessments/leetcode-completions") return Promise.resolve([]);
+    if (url === "/assessments/daily-goal")
+      return Promise.resolve({
+        goal: null,
+        date: "2026-09-02",
+        matched_domains: [],
+        target_per_day: 5,
+        completed_today: 0,
+        questions: [],
+      });
     return Promise.resolve(null);
   });
 }

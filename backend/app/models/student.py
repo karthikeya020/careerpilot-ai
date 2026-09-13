@@ -24,6 +24,10 @@ class StudentProfile(UUIDPKMixin, TimestampMixin, Base):
     college_year: Mapped[str | None] = mapped_column(String(50), nullable=True)
     branch: Mapped[str | None] = mapped_column(String(150), nullable=True)
     github_username: Mapped[str | None] = mapped_column(String(39), nullable=True)
+    leetcode_username: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Free-text placement goal typed into the Assessment "daily goal" bar,
+    # e.g. "I want to be placed in Microsoft". Drives the per-day question set.
+    assessment_goal: Mapped[str | None] = mapped_column(String(200), nullable=True)
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     consent_settings: Mapped[dict] = mapped_column(JSONBType(), default=dict, nullable=False)
     primary_target_role_id: Mapped[uuid.UUID | None] = mapped_column(

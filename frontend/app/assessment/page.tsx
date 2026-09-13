@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Activity,
-  BarChart3,
   Brain,
   CheckCircle2,
+  ChevronRight,
   Flame,
   ListChecks,
   Loader2,
@@ -19,22 +19,21 @@ import { toast } from "sonner";
 import { Protected } from "@/components/layout/protected";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { JobFxStyles, spotlightMove } from "@/components/ui/fx";
+import { PageHeader } from "@/components/ui/page-header";
 import { Progress } from "@/components/ui/progress";
+import { Reveal } from "@/components/ui/reveal";
+import { SectionHeader } from "@/components/ui/section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { ActivityHeatmap } from "@/components/assessment/activity-heatmap";
-import { AssessmentAnalyticsPanel } from "@/components/assessment/analytics-panel";
-import {
-  useActivityCalendar,
-  useActivityDay,
-  useAssessmentAnalytics,
-  useAssessmentDomains,
-  useStartAttempt,
-  useSubmitResponse,
-} from "@/hooks/use-assessment";
+import { DailyGoalBar } from "@/components/assessment/daily-goal-bar";
+import { LeetCodeProgressPanel } from "@/components/assessment/leetcode-progress-panel";
+import { LeetCodeRecommendationsPanel } from "@/components/assessment/leetcode-recommendations-panel";
+import { PracticeActivity } from "@/components/assessment/practice-activity";
+import { useAssessmentDomains, useStartAttempt, useSubmitResponse } from "@/hooks/use-assessment";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import type { AssessmentDomainOut, AttemptProgressOut, DifficultyBand, QuestionOut, QuestionResponseOut } from "@/types/api";
@@ -47,12 +46,10 @@ const DIFFICULTY_STYLE: Record<DifficultyBand, { label: string; badge: "positive
 
 function useElapsedSeconds(active: boolean): number {
   const [seconds, setSeconds] = useState(0);
-  const startRef = useRef<number | null>(null);
   useEffect(() => {
     if (!active) return;
-    startRef.current = Date.now();
-    setSeconds(0);
-    const id = setInterval(() => setSeconds(startRef.current ? Math.floor((Date.now() - startRef.current) / 1000) : 0), 1000);
+    const start = Date.now();
+    const id = setInterval(() => setSeconds(Math.floor((Date.now() - start) / 1000)), 1000);
     return () => clearInterval(id);
   }, [active]);
   return seconds;
@@ -68,31 +65,41 @@ function DomainCard({
   isStarting: boolean;
 }) {
   return (
-    <Card interactive className="relative flex flex-col overflow-hidden">
+    <div
+      onMouseMove={spotlightMove}
+      className="js-card ds-panel ds-raise group relative flex flex-col overflow-hidden p-5"
+    >
+      <span className="js-spot" aria-hidden="true" />
       {domain.recommended && (
-        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-brand" aria-hidden="true" />
+        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-brand" aria-hidden="true" />
       )}
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle as="h3" className="text-base">
-            {domain.name}
-          </CardTitle>
-          <Badge variant="muted">{domain.question_count} Qs</Badge>
-        </div>
-        <CardDescription>{domain.description}</CardDescription>
-      </CardHeader>
-      <CardContent className="mt-auto space-y-2.5">
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-base font-semibold tracking-tight text-foreground">{domain.name}</h3>
+        <Badge variant="muted">{domain.question_count} Qs</Badge>
+      </div>
+      <p className="mt-1.5 text-sm leading-relaxed text-muted">{domain.description}</p>
+
+      <div className="mt-auto space-y-2.5 pt-4">
         {domain.recommended && domain.matched_skills.length > 0 && (
           <p className="flex items-start gap-1.5 text-[11px] text-brand">
             <Sparkles className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
             Recommended from your resume: {domain.matched_skills.join(", ")}
           </p>
         )}
-        <Button onClick={() => onStart(domain.slug)} disabled={isStarting} className="w-full" size="sm">
+        <Button
+          onClick={() => onStart(domain.slug)}
+          disabled={isStarting}
+          className="ds-press w-full"
+          size="sm"
+        >
           Start practicing
+          <ChevronRight
+            className="h-3.5 w-3.5 transition-transform duration-200 ease-out group-hover:translate-x-0.5"
+            aria-hidden="true"
+          />
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -169,10 +176,10 @@ function QuestionForm({
             <label
               key={option.id}
               className={cn(
-                "flex cursor-pointer items-center gap-2 rounded-[var(--radius-md)] border p-3 text-sm transition-colors",
+                "flex cursor-pointer items-center gap-2 rounded-[var(--radius-md)] border p-3 text-sm transition-all duration-150 ease-out active:scale-[0.99]",
                 selected.includes(option.id)
                   ? "border-brand bg-brand-soft/60"
-                  : "border-border hover:bg-surface-muted",
+                  : "border-border hover:border-brand/40 hover:bg-surface-muted",
               )}
             >
               <input
@@ -200,6 +207,7 @@ function QuestionForm({
         onClick={handleSubmit}
         disabled={isSubmitting || (isChoice ? selected.length === 0 : text.trim().length === 0)}
         size="lg"
+        className="ds-press"
       >
         {isSubmitting ? (
           <>
@@ -258,98 +266,42 @@ function ResultReveal({
       )}
 
       {isCorrect === false && (
-        <Button variant="outline" size="sm" asChild>
+        <Button variant="outline" size="sm" className="ds-press" asChild>
           <Link href={`/graphrag?question=${response.question_id}`}>
             <Network className="h-3.5 w-3.5" /> See root cause in GraphRAG
           </Link>
         </Button>
       )}
 
-      <Button onClick={onContinue} size="lg" className="w-full">
+      <Button onClick={onContinue} size="lg" className="ds-press w-full">
         {domainExhausted ? "See results" : "Next question"}
       </Button>
     </div>
   );
 }
 
-function DayDetailPanel({ date, onClose }: { date: string; onClose: () => void }) {
-  const { data, isLoading } = useActivityDay(date);
-  return (
-    <Card className="animate-fade-up">
-      <CardHeader className="flex-row items-center justify-between">
-        <CardTitle as="h3" className="text-sm">
-          {new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-        </CardTitle>
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          Close
-        </Button>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <Skeleton className="h-24" />
-        ) : !data || data.length === 0 ? (
-          <p className="text-xs text-muted">No questions solved this day.</p>
-        ) : (
-          <ul className="space-y-2">
-            {data.map((item) => {
-              const style = DIFFICULTY_STYLE[item.difficulty_band];
-              return (
-                <li
-                  key={item.response_id}
-                  className="flex items-start gap-2 rounded-[var(--radius-md)] border border-border p-2.5 text-xs"
-                >
-                  {item.is_correct === true ? (
-                    <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-positive" aria-hidden="true" />
-                  ) : item.is_correct === false ? (
-                    <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden="true" />
-                  ) : (
-                    <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" aria-hidden="true" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                      <Badge variant="muted">{item.domain_name}</Badge>
-                      <Badge variant={style.badge}>{style.label}</Badge>
-                      <span className="text-[10px] text-muted">
-                        {new Date(item.submitted_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                    <p className="truncate text-foreground">{item.prompt}</p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 function AssessmentHome({ onStart, isStarting }: { onStart: (slug: string) => void; isStarting: boolean }) {
   const { data: domains, isLoading, isError, error, refetch } = useAssessmentDomains();
-  const year = new Date().getFullYear();
-  const { data: activity } = useActivityCalendar(year);
-  const { data: analytics } = useAssessmentAnalytics();
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const recommended = domains?.filter((d) => d.recommended) ?? [];
   const others = domains?.filter((d) => !d.recommended) ?? [];
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      <div className="animate-fade-up relative overflow-hidden rounded-[var(--radius-xl)] border border-border bg-mesh p-8 md:p-10">
-        <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-gradient-radial-brand blur-3xl opacity-70" aria-hidden="true" />
-        <div className="relative flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] bg-gradient-brand shadow-[var(--shadow-glow-brand)]">
-            <Brain className="h-5 w-5 text-brand-foreground" aria-hidden="true" />
-          </span>
-          <h1 className="text-h1 text-foreground">Assessment Arena</h1>
-        </div>
-        <p className="relative mt-3 max-w-2xl text-sm text-muted">
-          Practice questions picked from your actual resume skills, ranked easy to hard, never repeated. Every
-          answer builds real, evidence-backed Career Twin proficiency.
-        </p>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-10">
+      <JobFxStyles />
+
+      <Reveal>
+        <PageHeader
+          icon={Brain}
+          eyebrow="Practice"
+          title="Assessment Arena"
+          description="Questions picked from your actual resume skills, ranked easy to hard, never repeated. Every answer becomes real, evidence-backed Career Twin proficiency."
+        />
+      </Reveal>
+
+      <Reveal delay={60}>
+        <DailyGoalBar onStart={onStart} />
+      </Reveal>
 
       {isLoading ? (
         <Skeleton className="h-40" />
@@ -360,57 +312,56 @@ function AssessmentHome({ onStart, isStarting }: { onStart: (slug: string) => vo
       ) : (
         <>
           {recommended.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                <Sparkles className="h-4 w-4 text-brand" aria-hidden="true" /> Recommended for you
-              </h2>
+            <Reveal delay={90}>
+              <section className="space-y-4">
+                <SectionHeader eyebrow="Matched to your resume" title="Recommended for you" />
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {recommended.map((d, i) => (
+                    <Reveal key={d.id} delay={i * 45}>
+                      <DomainCard domain={d} onStart={onStart} isStarting={isStarting} />
+                    </Reveal>
+                  ))}
+                </div>
+              </section>
+            </Reveal>
+          )}
+          <Reveal delay={90}>
+            <section className="space-y-4">
+              <SectionHeader title={recommended.length > 0 ? "All topics" : "Choose a topic"} />
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {recommended.map((d) => (
-                  <DomainCard key={d.id} domain={d} onStart={onStart} isStarting={isStarting} />
+                {(recommended.length > 0 ? others : domains).map((d, i) => (
+                  <Reveal key={d.id} delay={i * 40}>
+                    <DomainCard domain={d} onStart={onStart} isStarting={isStarting} />
+                  </Reveal>
                 ))}
               </div>
-            </div>
-          )}
-          <div className="space-y-3">
-            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-              <ListChecks className="h-4 w-4 text-muted" aria-hidden="true" />
-              {recommended.length > 0 ? "All topics" : "Choose a topic"}
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {(recommended.length > 0 ? others : domains).map((d) => (
-                <DomainCard key={d.id} domain={d} onStart={onStart} isStarting={isStarting} />
-              ))}
-            </div>
-          </div>
+            </section>
+          </Reveal>
         </>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle as="h2" className="flex items-center gap-1.5 text-base">
-            <Activity className="h-4 w-4 text-brand" aria-hidden="true" /> Practice activity
-          </CardTitle>
-          <CardDescription>Every day you practiced this year. Click a day to see exactly what you solved.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ActivityHeatmap year={year} data={activity ?? []} selectedDate={selectedDate} onSelectDay={setSelectedDate} />
-        </CardContent>
-      </Card>
+      <Reveal delay={60}>
+        <section className="space-y-4">
+          <SectionHeader
+            eyebrow="Activity"
+            title={
+              <span className="inline-flex items-center gap-1.5">
+                <Activity className="h-4 w-4 text-brand" aria-hidden="true" /> Practice activity
+              </span>
+            }
+            description="Every LeetCode problem you've marked complete from your practice plan."
+          />
+          <PracticeActivity />
+        </section>
+      </Reveal>
 
-      {selectedDate && <DayDetailPanel date={selectedDate} onClose={() => setSelectedDate(null)} />}
+      <Reveal delay={60}>
+        <LeetCodeProgressPanel />
+      </Reveal>
 
-      {analytics && analytics.total_answered > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle as="h2" className="flex items-center gap-1.5 text-base">
-              <BarChart3 className="h-4 w-4 text-brand" aria-hidden="true" /> Your results
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AssessmentAnalyticsPanel analytics={analytics} />
-          </CardContent>
-        </Card>
-      )}
+      <Reveal delay={60}>
+        <LeetCodeRecommendationsPanel />
+      </Reveal>
     </div>
   );
 }
@@ -465,9 +416,10 @@ function AssessmentBody() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="animate-fade-up mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="flex items-center gap-2 text-h1 text-foreground">
+        <p className="ds-eyebrow mb-1">Session in progress</p>
+        <h1 className="flex items-center gap-2 text-h2 text-foreground">
           <ListChecks className="h-5 w-5 text-brand" aria-hidden="true" />
           Assessment Arena
         </h1>
@@ -476,7 +428,7 @@ function AssessmentBody() {
         </p>
       </div>
 
-      <Card>
+      <Card className="ds-panel">
         <CardContent className="pt-6">
           {revealOpen && progress.response ? (
             <ResultReveal
@@ -493,7 +445,7 @@ function AssessmentBody() {
                   </div>
                   <p className="text-h3 text-foreground">Topic mastered!</p>
                   <p className="max-w-sm text-xs text-muted">
-                    You've answered every question available in this topic. New questions get added over time — check
+                    You&apos;ve answered every question available in this topic. New questions get added over time — check
                     back soon, or practice a different topic now.
                   </p>
                 </>
@@ -506,7 +458,7 @@ function AssessmentBody() {
                   </p>
                 </>
               )}
-              <Button variant="outline" size="sm" onClick={() => setProgress(null)}>
+              <Button variant="outline" size="sm" className="ds-press" onClick={() => setProgress(null)}>
                 Back to Assessment Arena
               </Button>
             </div>

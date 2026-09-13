@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronDown, FileText, Search, Sparkles, Target } from "lucide-react";
+import { ChevronDown, FileText, PlayCircle, Search, Sparkles, Target } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -16,16 +16,17 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { ClickSpark, CountUp, JobFxStyles, Magnetic } from "@/components/ui/fx";
+import { PageHeader } from "@/components/ui/page-header";
+import { Reveal } from "@/components/ui/reveal";
+import { SectionHeader } from "@/components/ui/section";
 import { JobCard, JobCardSkeleton } from "@/components/jobs/job-card";
+import { JobReelRail } from "@/components/jobs/job-reel-rail";
+import { JobSearchBar, type JobSearchState } from "@/components/jobs/job-search-bar";
+import { LiveJobCard, LiveJobCardSkeleton } from "@/components/jobs/live-job-card";
 import { TrackedJobPanel } from "@/components/jobs/tracked-job-panel";
-import {
-  useJobSearch,
-  useJobSectors,
-  useRecommendedJobs,
-  useTrackJob,
-  useTrackedJobs,
-  useUntrackJob,
-} from "@/hooks/use-job-catalog";
+import { liveFiltersActive, useLiveJobSearch } from "@/hooks/use-live-jobs";
+import { useRecommendedJobs, useTrackJob, useTrackedJobs, useUntrackJob } from "@/hooks/use-job-catalog";
 import { useCreateJobDescription, useJobDescriptionMatch, useJobDescriptions } from "@/hooks/use-job-description";
 import { ApiError } from "@/lib/api-client";
 import { jobDescriptionSchema, type JobDescriptionFormValues } from "@/lib/schemas";
@@ -50,17 +51,20 @@ function JobRow({
   pendingId: string | null;
 }) {
   return (
-    <div className="space-y-2.5">
-      <div>
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        <p className="text-xs text-muted">{description}</p>
-      </div>
-      <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-3">
+    <div className="space-y-4">
+      <SectionHeader title={title} description={description} />
+      <div className="edge-fade-x -mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-3">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => <JobCardSkeleton key={i} />)
         ) : matches && matches.length > 0 ? (
           matches.map((m) => (
-            <JobCard key={m.listing.id} match={m} onTrack={onTrack} onUntrack={onUntrack} isPending={pendingId === m.listing.id} />
+            <JobCard
+              key={m.listing.id}
+              match={m}
+              onTrack={onTrack}
+              onUntrack={onUntrack}
+              isPending={pendingId === m.listing.id}
+            />
           ))
         ) : (
           <p className="py-6 text-xs text-muted">No matches yet -- try a different sector or company.</p>
@@ -221,19 +225,37 @@ function ManualJobDescriptionSection() {
   );
 }
 
+const EMPTY_QUERY: JobSearchState = {
+  raw: "",
+  q: "",
+  sector: "",
+  location: "",
+  remote: false,
+  skills: [],
+  minPackage: 0,
+};
+
 function JobMatchBody() {
-  const { data: sectors } = useJobSectors();
   const { data: recommended, isLoading: recommendedLoading } = useRecommendedJobs();
-  const [sector, setSector] = useState("");
-  const [company, setCompany] = useState("");
-  const [packageTier, setPackageTier] = useState("");
-  const { data: searchResults, isLoading: searchLoading } = useJobSearch({ sector, company, packageTier });
+  const [query, setQuery] = useState<JobSearchState>(EMPTY_QUERY);
+  const searching = liveFiltersActive(query);
+  const { data: liveResults, isLoading: liveLoading, isError: liveError } = useLiveJobSearch(query);
   const { data: tracked, isLoading: trackedLoading } = useTrackedJobs();
   const [selectedTrackedId, setSelectedTrackedId] = useState<string | null>(null);
 
   const trackJob = useTrackJob();
   const untrackJob = useUntrackJob();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [reelsOpen, setReelsOpen] = useState(false);
+
+  const openReel = () => {
+    setReelsOpen(true);
+    window.dispatchEvent(new CustomEvent("careerpilot:reel", { detail: true }));
+  };
+  const closeReel = () => {
+    setReelsOpen(false);
+    window.dispatchEvent(new CustomEvent("careerpilot:reel", { detail: false }));
+  };
 
   const handleTrack = (listingId: string) => {
     setPendingId(listingId);
@@ -257,136 +279,153 @@ function JobMatchBody() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <div className="animate-fade-up relative overflow-hidden rounded-[var(--radius-xl)] border border-border bg-mesh p-8 md:p-10">
-        <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-gradient-radial-brand blur-3xl opacity-70" aria-hidden="true" />
-        <div className="relative flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] bg-gradient-brand shadow-[var(--shadow-glow-brand)]">
-            <Target className="h-5 w-5 text-brand-foreground" aria-hidden="true" />
-          </span>
-          <h1 className="text-h1 text-foreground">Job Match</h1>
-        </div>
-        <p className="relative mt-3 max-w-2xl text-sm text-muted">
-          Every role below is scored against your actual resume evidence -- no typing required. Track up to 5 dream
-          jobs and we'll keep showing you exactly how ready you are and what closes the gap.
-        </p>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-10">
+      <JobFxStyles />
 
-      <JobRow
-        title="Recommended for you"
-        description="Ranked by how well your resume already matches, across every sector."
-        matches={recommended}
-        isLoading={recommendedLoading}
-        onTrack={handleTrack}
-        onUntrack={handleUntrack}
-        pendingId={pendingId}
-      />
+      <Reveal>
+        <PageHeader
+          icon={Target}
+          eyebrow="Careers"
+          title="Job Match"
+          description="Every role is scored against your actual resume evidence — no typing required. Track up to 5 dream jobs and see exactly how ready you are and what closes the gap."
+          actions={
+            <Magnetic>
+              <ClickSpark>
+                <Button onClick={openReel} size="sm" className="ds-press bg-gradient-brand">
+                  <PlayCircle className="h-4 w-4" aria-hidden="true" /> Scroll Jobs
+                </Button>
+              </ClickSpark>
+            </Magnetic>
+          }
+        />
+      </Reveal>
 
-      <Card>
-        <CardHeader>
-          <CardTitle as="h2" className="flex items-center gap-1.5 text-sm">
-            <Search className="h-4 w-4 text-brand" aria-hidden="true" /> Search by sector, dream company, or package
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="sector-select">Sector</Label>
-              <select
-                id="sector-select"
-                value={sector}
-                onChange={(e) => setSector(e.target.value)}
-                className="w-full rounded-[var(--radius-md)] border border-border bg-surface px-3 py-2 text-sm text-foreground"
-              >
-                <option value="">Any sector</option>
-                {sectors?.map((s) => (
-                  <option key={s.slug} value={s.slug}>
-                    {s.label} ({s.listing_count})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="dream-company">Dream company</Label>
-              <Input
-                id="dream-company"
-                placeholder="e.g. Google, Zerodha, Deloitte..."
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="package-select">Package</Label>
-              <select
-                id="package-select"
-                value={packageTier}
-                onChange={(e) => setPackageTier(e.target.value)}
-                className="w-full rounded-[var(--radius-md)] border border-border bg-surface px-3 py-2 text-sm text-foreground"
-              >
-                <option value="">Any package</option>
-                <option value="10">10+ LPA</option>
-                <option value="20">20+ LPA</option>
-                <option value="30">30+ LPA</option>
-                <option value="40">40+ LPA</option>
-              </select>
-            </div>
-          </div>
+      {reelsOpen && <JobReelRail onClose={closeReel} />}
 
-          <JobRow
-            title={company || sector || packageTier ? "Matching your search" : "Browse all sectors"}
-            description="Always at least 10 results -- we pad with the closest matches so you can compare."
-            matches={searchResults}
-            isLoading={searchLoading}
-            onTrack={handleTrack}
-            onUntrack={handleUntrack}
-            pendingId={pendingId}
+      <Reveal delay={60}>
+        <JobSearchBar onSearch={setQuery} />
+      </Reveal>
+
+      {searching ? (
+        <Reveal className="space-y-4">
+          <SectionHeader
+            eyebrow="Live from company boards"
+            title={
+              <span className="inline-flex flex-wrap items-baseline gap-1.5">
+                <Search className="h-4 w-4 self-center text-brand" aria-hidden="true" />
+                {liveResults ? (
+                  <>
+                    <CountUp value={liveResults.total} className="tabular-nums" /> live opening
+                    {liveResults.total === 1 ? "" : "s"}
+                  </>
+                ) : (
+                  "Searching…"
+                )}
+                {query.raw && (
+                  <span className="text-sm font-normal text-muted">for &ldquo;{query.raw}&rdquo;</span>
+                )}
+              </span>
+            }
           />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle as="h2" className="flex items-center gap-1.5 text-base">
-            <Sparkles className="h-4 w-4 text-brand" aria-hidden="true" /> My Dream Jobs
-          </CardTitle>
-          <CardDescription>Up to 5 jobs we continuously track your readiness for.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {trackedLoading ? (
-            <Skeleton className="h-16" />
-          ) : !tracked || tracked.length === 0 ? (
-            <EmptyState icon={Target} title="No dream jobs yet" description="Click 'I want this job' on any card above to start tracking it." />
+          {liveLoading ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <LiveJobCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : liveError ? (
+            <ErrorState message="Couldn't reach the live job feed. Try again in a bit." />
+          ) : !liveResults || liveResults.jobs.length === 0 ? (
+            <EmptyState
+              icon={Search}
+              title="No live openings match"
+              description="Loosen a filter or try a broader term — the feed only carries roles currently open on company boards."
+            />
           ) : (
-            <>
-              <div className="flex snap-x gap-2 overflow-x-auto pb-1">
-                {tracked.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setSelectedTrackedId(t.match.listing.id)}
-                    className={cn(
-                      "flex shrink-0 snap-start items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                      (selectedTracked?.match.listing.id ?? tracked[0].match.listing.id) === t.match.listing.id
-                        ? "border-brand bg-brand-soft text-brand"
-                        : "border-border text-muted hover:text-foreground",
-                    )}
-                  >
-                    {t.match.listing.company}
-                    <Badge variant="outline" className="ml-0.5">
-                      {formatPercent(t.match.readiness)}
-                    </Badge>
-                  </button>
-                ))}
-              </div>
-              {selectedTracked && (
-                <TrackedJobPanel tracked={selectedTracked} onRemove={() => handleUntrack(selectedTracked.match.listing.id)} />
-              )}
-            </>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {liveResults.jobs.map((job, i) => (
+                <div
+                  key={job.id}
+                  className="animate-fade-up"
+                  style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
+                >
+                  <LiveJobCard job={job} />
+                </div>
+              ))}
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </Reveal>
+      ) : (
+        <>
+          <Reveal delay={90}>
+            <JobRow
+              title="Recommended for you"
+              description="Ranked by how well your resume already matches, across every sector."
+              matches={recommended}
+              isLoading={recommendedLoading}
+              onTrack={handleTrack}
+              onUntrack={handleUntrack}
+              pendingId={pendingId}
+            />
+          </Reveal>
 
-      <ManualJobDescriptionSection />
+          <Reveal delay={60}>
+            <section className="space-y-4">
+              <SectionHeader
+                eyebrow="Tracked"
+                title={
+                  <span className="inline-flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-brand" aria-hidden="true" /> My Dream Jobs
+                  </span>
+                }
+                description="Up to 5 jobs we continuously track your readiness for."
+              />
+              {trackedLoading ? (
+                <Skeleton className="h-16" />
+              ) : !tracked || tracked.length === 0 ? (
+                <EmptyState
+                  icon={Target}
+                  title="No dream jobs yet"
+                  description="Click 'I want this job' on any card above to start tracking it."
+                />
+              ) : (
+                <div className="space-y-4">
+                  <div className="edge-fade-x -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1">
+                    {tracked.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setSelectedTrackedId(t.match.listing.id)}
+                        className={cn(
+                          "ds-press flex shrink-0 snap-start items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                          (selectedTracked?.match.listing.id ?? tracked[0].match.listing.id) === t.match.listing.id
+                            ? "border-brand bg-brand-soft text-brand"
+                            : "border-border text-muted hover:border-brand/40 hover:text-foreground",
+                        )}
+                      >
+                        {t.match.listing.company}
+                        <Badge variant="outline" className="ml-0.5">
+                          {formatPercent(t.match.readiness)}
+                        </Badge>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedTracked && (
+                    <TrackedJobPanel
+                      tracked={selectedTracked}
+                      onRemove={() => handleUntrack(selectedTracked.match.listing.id)}
+                    />
+                  )}
+                </div>
+              )}
+            </section>
+          </Reveal>
+
+          <Reveal delay={60}>
+            <ManualJobDescriptionSection />
+          </Reveal>
+        </>
+      )}
     </div>
   );
 }

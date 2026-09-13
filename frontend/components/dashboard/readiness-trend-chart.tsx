@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EmptyState } from "@/components/ui/empty-state";
 import { useCareerTwinHistory } from "@/hooks/use-career-twin";
 import { Skeleton } from "@/components/ui/skeleton";
+import { chartAxis, chartColors, chartGrid } from "@/lib/chart-theme";
 
 function ChartTooltip({ active, payload }: { active?: boolean; payload?: { payload: { version: number; score: number } }[] }) {
   if (!active || !payload?.length) return null;
@@ -57,27 +58,14 @@ export function ReadinessTrendChart() {
                     <stop offset="100%" stopColor="var(--color-brand)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid vertical={false} stroke="var(--color-border)" strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="version"
-                  tickFormatter={(v) => `v${v}`}
-                  tick={{ fill: "var(--color-muted)", fontSize: 11 }}
-                  axisLine={{ stroke: "var(--color-border)" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  domain={[0, 100]}
-                  tickFormatter={(v) => `${v}%`}
-                  tick={{ fill: "var(--color-muted)", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={44}
-                />
+                <CartesianGrid {...chartGrid} />
+                <XAxis dataKey="version" tickFormatter={(v) => `v${v}`} {...chartAxis} />
+                <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={40} {...chartAxis} />
                 <Tooltip content={<ChartTooltip />} />
                 <Area
                   type="monotone"
                   dataKey="score"
-                  stroke="var(--color-brand)"
+                  stroke={chartColors.primary}
                   strokeWidth={2.5}
                   fill="url(#trendFill)"
                   animationDuration={900}

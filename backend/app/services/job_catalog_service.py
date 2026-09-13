@@ -15,8 +15,16 @@ from dataclasses import dataclass, field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+import re
+
 from app.core.errors import ConflictError, NotFoundError
-from app.models.job_catalog import ALL_SECTORS, SECTOR_LABELS, CompanyJobListing, TrackedJob
+from app.models.job_catalog import (
+    ALL_SECTORS,
+    SECTOR_LABELS,
+    CompanyJobListing,
+    JobListingRequirement,
+    TrackedJob,
+)
 from app.models.skill import Skill
 from app.models.student import StudentProfile
 from app.services import resource_service
@@ -140,6 +148,48 @@ def recommended_listings(db: Session, student_profile: StudentProfile, limit: in
     return scored[:limit]
 
 
+def match_skill_names(db: Session, student_profile: StudentProfile, names: list[str]) -> dict:
+    """Score an arbitrary list of skill NAMES (e.g. skills scraped off a live
+    job posting) against the student's resume evidence -- the same weighting
+    as _score_listing, so the live-feed 'skill match' and the catalog
+    readiness are one number, not two. Names not in the skill taxonomy are
+    reported as missing (we can't verify an unknown skill)."""
+    wanted = []
+    seen_lower: set[str] = set()
+    for raw in names:
+        key = raw.strip()
+        if key and key.lower() not in seen_lower:
+            seen_lower.add(key.lower())
+            wanted.append(key)
+    if not wanted:
+        return {"readiness": None, "matched": [], "partial": [], "missing": []}
+
+    weight_by_skill = resume_weight_by_skill(db, student_profile.id)
+    rows = db.scalars(
+        select(Skill).where(func.lower(Skill.name).in_([w.lower() for w in wanted]))
+    ).all()
+    id_by_lower = {s.name.lower(): s.id for s in rows}
+    name_by_lower = {s.name.lower(): s.name for s in rows}
+
+    matched: list[str] = []
+    partial: list[str] = []
+    missing: list[str] = []
+    for w in wanted:
+        skill_id = id_by_lower.get(w.lower())
+        display = name_by_lower.get(w.lower(), w)
+        weight = weight_by_skill.get(skill_id) if skill_id is not None else None
+        if weight is None:
+            missing.append(display)
+        elif weight >= _FULL_MATCH_WEIGHT_THRESHOLD:
+            matched.append(display)
+        else:
+            partial.append(display)
+
+    total = len(matched) + len(partial) + len(missing)
+    readiness = round((len(matched) + 0.5 * len(partial)) / total, 4) if total else None
+    return {"readiness": readiness, "matched": matched, "partial": partial, "missing": missing}
+
+
 def get_listing_match(db: Session, student_profile: StudentProfile, listing_id: uuid.UUID) -> ListingMatch:
     listing = db.get(CompanyJobListing, listing_id)
     if listing is None:
@@ -181,6 +231,86 @@ def track_job(db: Session, student_profile: StudentProfile, listing_id: uuid.UUI
     db.commit()
     db.refresh(tracked)
     return tracked
+
+
+_SKILL_DOMAIN = {
+    "python": "python", "pandas": "python", "numpy": "python",
+    "java": "java",
+    "javascript": "javascript", "typescript": "javascript", "react": "javascript", "next.js": "javascript", "node.js": "javascript",
+    "sql": "sql", "postgresql": "sql", "mongodb": "sql",
+    "data structures": "dsa", "algorithms": "dsa", "system design": "dsa",
+}
+
+
+def _lpa_from_comp_note(note: str | None) -> float:
+    if not note:
+        return 0.0
+    lpa = re.search(r"([\d.]+)\s*LPA", note, re.I)
+    if lpa:
+        try:
+            return round(float(lpa.group(1)), 2)
+        except ValueError:
+            pass
+    dollars = re.search(r"\$\s*([\d,]{4,})", note)
+    if dollars:
+        try:
+            usd = float(dollars.group(1).replace(",", ""))
+            return round(usd * 83 / 100_000, 1)  # rough USD -> INR LPA, illustrative only
+        except ValueError:
+            pass
+    return 0.0
+
+
+def _domains_from_skill_names(names: list[str]) -> list[str]:
+    out: list[str] = []
+    for n in names:
+        d = _SKILL_DOMAIN.get(n.strip().lower())
+        if d and d not in out:
+            out.append(d)
+    return out[:3]
+
+
+def track_live_job(db: Session, student_profile: StudentProfile, live_job_id: str) -> TrackedJob:
+    """Track a job that came from the live reel/search. There's no catalog row
+    for it, so we materialise a CompanyJobListing (deduped on company+title)
+    with skill requirements, then reuse the normal tracked-job flow -- so the
+    live job gets the same readiness, gap plan and roadmap as any other."""
+    from app.services import live_jobs_service
+
+    job = live_jobs_service.get_job(db, live_job_id)
+    if job is None:
+        raise NotFoundError("That job isn't in the live feed anymore.")
+
+    listing = db.scalar(
+        select(CompanyJobListing).where(
+            func.lower(CompanyJobListing.company) == job.company.lower(),
+            func.lower(CompanyJobListing.title) == job.title.lower(),
+        )
+    )
+    if listing is None:
+        names = [s.name for s in job.skills]
+        pkg = _lpa_from_comp_note(job.comp_note)
+        listing = CompanyJobListing(
+            company=job.company,
+            title=job.title[:200],
+            sector=job.sector if job.sector in ALL_SECTORS else "startup",
+            seniority="entry_level",
+            package_min_lpa=pkg,
+            package_max_lpa=pkg,
+            description=(job.summary or "")[:2000],
+            emphasis_domains=_domains_from_skill_names(names),
+        )
+        db.add(listing)
+        db.flush()
+        matched = db.scalars(
+            select(Skill).where(func.lower(Skill.name).in_([n.lower() for n in names]))
+        ).all()
+        for skill in matched:
+            db.add(JobListingRequirement(listing_id=listing.id, skill_id=skill.id, is_required=True))
+        db.commit()
+        db.refresh(listing)
+
+    return track_job(db, student_profile, listing.id)
 
 
 def untrack_job(db: Session, student_profile: StudentProfile, listing_id: uuid.UUID) -> None:

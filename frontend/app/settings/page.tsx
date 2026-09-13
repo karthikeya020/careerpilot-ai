@@ -39,6 +39,7 @@ function PersonalDetailsCard({ profile }: { profile: StudentProfileOut }) {
       college_year: (profile.college_year as ProfileDetailsFormValues["college_year"]) ?? "",
       branch: profile.branch ?? "",
       github_username: profile.github_username ?? "",
+      leetcode_username: profile.leetcode_username ?? "",
     },
   });
 
@@ -49,6 +50,7 @@ function PersonalDetailsCard({ profile }: { profile: StudentProfileOut }) {
       college_year: (profile.college_year as ProfileDetailsFormValues["college_year"]) ?? "",
       branch: profile.branch ?? "",
       github_username: profile.github_username ?? "",
+      leetcode_username: profile.leetcode_username ?? "",
     });
   }, [profile, reset]);
 
@@ -60,6 +62,7 @@ function PersonalDetailsCard({ profile }: { profile: StudentProfileOut }) {
         college_year: values.college_year ? values.college_year : null,
         branch: values.branch ? values.branch : null,
         github_username: values.github_username ? values.github_username : null,
+        leetcode_username: values.leetcode_username ? values.leetcode_username : null,
       });
       toast.success("Personal details updated.");
     } catch (err) {
@@ -133,6 +136,22 @@ function PersonalDetailsCard({ profile }: { profile: StudentProfileOut }) {
             {errors.github_username ? (
               <p className="text-xs text-danger" role="alert">
                 {errors.github_username.message}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="leetcode_username">LeetCode username</Label>
+            <Input
+              id="leetcode_username"
+              placeholder="e.g. octostudent"
+              {...register("leetcode_username")}
+              aria-invalid={!!errors.leetcode_username}
+            />
+            <p className="text-xs text-muted">Powers the LeetCode progress tracker in Assessment Arena — solved counts, streaks, and contests from your public profile.</p>
+            {errors.leetcode_username ? (
+              <p className="text-xs text-danger" role="alert">
+                {errors.leetcode_username.message}
               </p>
             ) : null}
           </div>

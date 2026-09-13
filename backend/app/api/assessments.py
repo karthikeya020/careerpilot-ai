@@ -21,7 +21,20 @@ from app.schemas.assessment import (
     StartAttemptRequest,
     SubmitResponseRequest,
 )
-from app.services import assessment_service
+from app.schemas.daily_goal import DailyGoalOut, SetDailyGoalRequest
+from app.schemas.leetcode_completion import (
+    AnalyzeCodeRequest,
+    LeetCodeAnalysisOut,
+    LeetCodeCompletionOut,
+    MarkCompleteRequest,
+)
+from app.schemas.leetcode_recommendation import LeetCodeRecommendationsOut
+from app.services import (
+    assessment_service,
+    daily_goal_service,
+    leetcode_completion_service,
+    leetcode_recommendation_service,
+)
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
 
@@ -160,3 +173,73 @@ def get_analytics(
     db: Session = Depends(get_db),
 ) -> AssessmentAnalyticsOut:
     return AssessmentAnalyticsOut(**assessment_service.get_analytics(db, student_profile))
+
+
+@router.get("/leetcode-recommendations", response_model=LeetCodeRecommendationsOut)
+def get_leetcode_recommendations(
+    student_profile: StudentProfile = Depends(get_current_student_profile),
+    db: Session = Depends(get_db),
+) -> LeetCodeRecommendationsOut:
+    return leetcode_recommendation_service.recommend(db, student_profile)
+
+
+@router.get("/daily-goal", response_model=DailyGoalOut)
+def get_daily_goal(
+    student_profile: StudentProfile = Depends(get_current_student_profile),
+    db: Session = Depends(get_db),
+) -> DailyGoalOut:
+    return daily_goal_service.get_daily_goal(db, student_profile)
+
+
+@router.put("/daily-goal", response_model=DailyGoalOut)
+def set_daily_goal(
+    payload: SetDailyGoalRequest,
+    student_profile: StudentProfile = Depends(get_current_student_profile),
+    db: Session = Depends(get_db),
+) -> DailyGoalOut:
+    return daily_goal_service.set_goal(db, student_profile, payload.goal)
+
+
+@router.get("/leetcode-completions", response_model=list[LeetCodeCompletionOut])
+def list_leetcode_completions(
+    student_profile: StudentProfile = Depends(get_current_student_profile),
+    db: Session = Depends(get_db),
+) -> list[LeetCodeCompletionOut]:
+    return leetcode_completion_service.list_completions(db, student_profile)
+
+
+@router.post("/leetcode-completions", response_model=LeetCodeCompletionOut)
+def mark_leetcode_complete(
+    payload: MarkCompleteRequest,
+    student_profile: StudentProfile = Depends(get_current_student_profile),
+    db: Session = Depends(get_db),
+) -> LeetCodeCompletionOut:
+    return leetcode_completion_service.mark_complete(db, student_profile, payload)
+
+
+@router.delete("/leetcode-completions/{slug}", status_code=204)
+def unmark_leetcode_complete(
+    slug: str,
+    student_profile: StudentProfile = Depends(get_current_student_profile),
+    db: Session = Depends(get_db),
+) -> None:
+    leetcode_completion_service.unmark(db, student_profile, slug)
+
+
+@router.get("/leetcode-completions/{slug}/analysis", response_model=LeetCodeAnalysisOut)
+def get_leetcode_analysis(
+    slug: str,
+    student_profile: StudentProfile = Depends(get_current_student_profile),
+    db: Session = Depends(get_db),
+) -> LeetCodeAnalysisOut:
+    return leetcode_completion_service.get_analysis(db, student_profile, slug)
+
+
+@router.post("/leetcode-completions/{slug}/analyze", response_model=LeetCodeAnalysisOut)
+def analyze_leetcode_solution(
+    slug: str,
+    payload: AnalyzeCodeRequest,
+    student_profile: StudentProfile = Depends(get_current_student_profile),
+    db: Session = Depends(get_db),
+) -> LeetCodeAnalysisOut:
+    return leetcode_completion_service.analyze_code(db, student_profile, slug, payload)

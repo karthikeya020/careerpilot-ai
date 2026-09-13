@@ -60,6 +60,43 @@ function makeMatch(overrides: Partial<JobListingMatchOut> = {}): JobListingMatch
 const RECOMMENDED = [makeMatch()];
 const TRACKED: TrackedJobOut[] = [];
 
+const LIVE_JOB = {
+  id: "greenhouse:stripe:101",
+  company: "Google",
+  title: "Software Engineer, Backend",
+  location: "Remote - US",
+  remote: true,
+  url: "https://boards.greenhouse.io/x/jobs/101",
+  sector: "faang",
+  source: "greenhouse",
+  posted_at: null,
+  team: "Infra",
+  summary: "Own core services.",
+  description: "Own core services end to end.",
+  responsibilities: [],
+  requirements: [],
+  skills: [{ name: "Python", importance: "core" }],
+  comp_note: null,
+  is_live: true,
+  is_internship: false,
+};
+const LIVE_SEARCH = { jobs: [LIVE_JOB], total: 1, live: true };
+
+const ROADMAP = {
+  company: "Google",
+  title: "Software Engineer, New Grad",
+  sector: "faang",
+  seniority: "entry_level",
+  difficulty: "brutal",
+  bar: "Google: hard.",
+  total_weeks: 24,
+  summary: "Plan for 24 weeks.",
+  skills_focus: ["Data Structures"],
+  phases: [
+    { title: "Foundations", weeks: "Weeks 1-4", why: "w", actions: [{ text: "a", link: "/assessment" }], milestone: "m" },
+  ],
+};
+
 function mockEndpoints({ recommended = RECOMMENDED, search = RECOMMENDED, tracked = TRACKED }: { recommended?: JobListingMatchOut[]; search?: JobListingMatchOut[]; tracked?: TrackedJobOut[] } = {}) {
   getMock.mockImplementation((url: string) => {
     if (url === "/job-catalog/sectors") return Promise.resolve(SECTORS);
@@ -67,6 +104,8 @@ function mockEndpoints({ recommended = RECOMMENDED, search = RECOMMENDED, tracke
     if (url.startsWith("/job-catalog/search")) return Promise.resolve(search);
     if (url === "/job-catalog/tracked") return Promise.resolve(tracked);
     if (url === "/job-descriptions") return Promise.resolve([]);
+    if (url.startsWith("/job-catalog/live/search")) return Promise.resolve(LIVE_SEARCH);
+    if (url.includes("/roadmap")) return Promise.resolve(ROADMAP);
     return Promise.resolve(null);
   });
 }
@@ -98,21 +137,24 @@ describe("JobMatchPage", () => {
     expect(screen.getAllByText("Data Structures").length).toBeGreaterThan(0);
   });
 
-  it("searches by sector, dream company, and package -- always three input regions", async () => {
+  it("searches live jobs from the single bar and hides everything else", async () => {
     mockEndpoints();
     renderPage();
 
     await screen.findByRole("heading", { name: "Job Match" });
-    expect(screen.getByLabelText(/sector/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/dream company/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/package/i)).toBeInTheDocument();
+    expect(screen.getByText("Recommended for you")).toBeInTheDocument();
 
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText(/dream company/i), "Google");
+    await user.type(screen.getByLabelText(/search jobs/i), "Google");
 
     await waitFor(() =>
-      expect(getMock).toHaveBeenCalledWith(expect.stringContaining("/job-catalog/search?company=Google")),
+      expect(getMock).toHaveBeenCalledWith(expect.stringContaining("/job-catalog/live/search?q=Google")),
     );
+    // Only the search results remain -- Recommended / Dream Jobs / manual JD are gone.
+    await waitFor(() => expect(screen.queryByText("Recommended for you")).not.toBeInTheDocument());
+    expect(screen.queryByText("My Dream Jobs")).not.toBeInTheDocument();
+    expect(await screen.findByText(/live opening/i)).toBeInTheDocument();
+    expect(screen.getByText("Software Engineer, Backend")).toBeInTheDocument();
   });
 
   it("lets a student mark 'I want this job' and shows it as tracked", async () => {
@@ -142,6 +184,7 @@ describe("JobMatchPage", () => {
         return Promise.resolve([{ id: "tracked-1", created_at: "2026-01-01T00:00:00Z", match: makeMatch({ is_tracked: true }) }]);
       }
       if (url === "/job-descriptions") return Promise.resolve([]);
+      if (url.includes("/roadmap")) return Promise.resolve(ROADMAP);
       if (url.startsWith("/job-catalog/listing-1/gap-plan") || url.includes("/gap-plan")) {
         return Promise.resolve({
           listing: makeMatch().listing,

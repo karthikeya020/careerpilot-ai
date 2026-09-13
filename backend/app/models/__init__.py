@@ -20,6 +20,7 @@ from app.models.interview import (
 )
 from app.models.job_catalog import CompanyJobListing, JobListingRequirement, TrackedJob
 from app.models.job_description import JobDescription, JobRequirement
+from app.models.leetcode import LeetCodeCompletion
 from app.models.mission import LearningMission
 from app.models.resource import Resource
 from app.models.resume import Resume, ResumeSection, ResumeSkill
@@ -52,6 +53,7 @@ __all__ = [
     "JobDescription",
     "JobListingRequirement",
     "JobRequirement",
+    "LeetCodeCompletion",
     "LearningMission",
     "Question",
     "QuestionResponse",

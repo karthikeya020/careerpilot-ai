@@ -1,117 +1,169 @@
-# CareerPilot AI — Design System
+# CareerPilot Design System
 
-The single source of visual truth for every screen. Tokens live in
-`frontend/app/globals.css`; primitives live in `frontend/components/ui/*`.
-Every page should compose these rather than inventing new colors,
-radii, shadows, or animation timings.
+CareerPilot is an **AI career operating system** — not a dashboard template, not
+a chatbot. The UI should feel calm, dense with signal, and *quietly
+intelligent*: motion communicates state and reasoning, never decoration.
 
-## Color tokens
+References studied (as inspiration only, never copied wholesale): shadcn/ui
+(component foundation), React Bits (micro‑interaction restraint), Aceternity UI
+(one high‑impact effect per surface), Magic UI (SaaS polish), Tremor (analytics
+grammar), shadcn‑dashboard (information architecture), Spectrum UI (composition).
 
-Defined as CSS custom properties on `:root` (light) and `.dark`, mapped
-into Tailwind via `@theme inline` so they're usable as `bg-*`/`text-*`/
-`border-*` utility classes.
+The system lives in **one place**: `frontend/app/globals.css` (tokens +
+canonical `.ds-*` primitives) and `frontend/components/ui/*` (React
+primitives). Do not restyle a surface with a bespoke stack of Tailwind classes
+— reach for a primitive or extend the system.
 
-| Token | Role |
-|---|---|
-| `--background` / `--background-elevated` | Page background, layered surface |
-| `--surface` / `--surface-muted` / `--surface-glass` | Card backgrounds — solid, muted, and glass (blurred, for auth screens and hero overlays) |
-| `--foreground` / `--muted` | Primary and secondary text |
-| `--border` / `--border-strong` | Default and emphasized borders |
-| `--brand` / `--brand-2` | Primary gradient pair (violet → magenta in dark theme, violet → purple in light) |
-| `--accent` / `--accent-2` | Secondary gradient pair (teal/cyan) — used for non-brand emphasis (placement/faculty dashboards) |
-| `--positive` / `--warning` / `--danger` | Semantic status colors, tuned per-theme for contrast as *text* |
+---
 
-Dark theme is deliberately more saturated and glow-heavy ("deep, layered,
-luxurious" per the brief) than light theme, which stays closer to a
-neutral off-white with the same hue relationships.
+## 1. Color
 
-**Never hardcode a hex color in a component.** If a new semantic needs a
-color, add a token to `globals.css` in both `:root` and `.dark`, not an
-inline hex.
+| Role | Token | Light | Dark |
+| --- | --- | --- | --- |
+| Page | `--background` | `#f6f5fb` | `#060512` |
+| Raised page | `--background-elevated` | `#ffffff` | `#0b0a1a` |
+| Panel | `--surface` | `#ffffff` | `#0f0d1f` |
+| Inset / muted | `--surface-muted` | `#f0eff8` | `#171429` |
+| Glass | `--surface-glass` | `rgba(255,255,255,.7)` | `rgba(20,18,38,.55)` |
+| Text | `--foreground` | `#14121f` | `#f5f3fd` |
+| Secondary text | `--muted` | `#666280` | `#a29dc2` |
+| Hairline | `--border` | `#e4e2ee` | `#262147` |
+| Strong border | `--border-strong` | `#d4d1e6` | `#362f5e` |
 
-## Typography scale
+**Brand** is a deep periwinkle (`--brand`) with a violet second stop
+(`--brand-2`); it is the primary series colour, the active‑route accent, and
+the only gradient (`.bg-gradient-brand`, 135°). **Accent** teal/cyan
+(`--accent`, `--accent-2`) is for secondary data series and supporting glows.
+Semantic: `--positive` `--warning` `--danger`. Focus: `--ring`.
 
-`text-display`, `text-h1`, `text-h2`, `text-h3`, `text-projector`,
-`text-projector-lg`, `text-metric`, `text-metric-lg` — all `clamp()`-based
-so they scale between mobile and projector widths without a separate
-breakpoint system. `text-projector*` and `text-metric*` are deliberately
-oversized for Competition Mode and hero stat tiles; regular page headers
-use `text-h1`/`text-h2`/`text-h3`.
+Use `color-mix(in srgb, …)` for tints (e.g. `var(--color-brand) 10%`), never
+hard‑coded hex. Every value has a light and dark answer.
 
-Every page's `<h1>` should use `text-h1` (not a raw `text-2xl
-font-semibold` — that was the old flat style still being retired from a
-few secondary pages). First-level `Card` on a page should use `CardTitle
-as="h2"` to keep heading order correct for screen readers.
+---
 
-## Surface treatments
+## 2. Typography
 
-- `.card-premium` — the default card: solid surface, 1px border, medium
-  shadow, subtle hover lift when combined with `.card-premium-hover`
-  (wired via `<Card interactive>`).
-- `.card-glass` — blurred/translucent, used for hero overlays and the
-  auth-flow card (`AuthShell`).
-- `.card-glow-brand` / `.card-glow-accent` — adds a colored glow shadow
-  and tinted border, reserved for the page's single most important card
-  (a signature reveal, the primary CTA card) — not every card, or the
-  emphasis is lost.
-- `.bg-mesh` — the soft multi-blob radial-gradient background used on
-  page hero sections and the app shell's overall backdrop.
-- `.bg-grid` — faint grid overlay, used sparingly for technical/data
-  screens (Trust Center, Research Lab) to signal "system internals."
-
-## Motion system
-
-All animations respect `prefers-reduced-motion` globally (see the
-`@media` block at the bottom of `globals.css` — durations collapse to
-0.01ms) — **individual components never need their own reduced-motion
-handling** as long as they use the shared `.animate-*` classes.
+Geist Sans (body/UI), Geist Mono (code, IDs, raw values). Body letter‑spacing
+`-0.011em`; OpenType `cv02 cv03 cv04 cv11` on.
 
 | Class | Use |
-|---|---|
-| `.animate-fade-up` | Default entrance for cards/sections, staggered via `.delay-1`…`.delay-8` |
-| `.animate-scale-in` | Emphasis entrance (icon badges, result reveals) |
-| `.animate-pulse-glow` | Sustained attention (recording indicator, root-cause spotlight) |
-| `.animate-draw-line` | Connector lines in node-chain visualizations (GraphRAG, Trust Center timeline) — set `--line-length` per use |
-| `.animate-gradient` | Indeterminate progress (CARE-processing state) |
-| `.skeleton-shimmer` | Loading skeletons |
+| --- | --- |
+| `.text-display` | landing / entry only |
+| `.text-h1` | page title (in `PageHeader`) |
+| `.text-h2` | rare — full‑bleed section |
+| `.text-h3` | section title (in `SectionHeader`) |
+| `.ds-eyebrow` | uppercase 0.14em tracked label above a title |
+| `.text-metric` / `.ds-stat` | big tabular numbers |
+| default `text-sm` | body copy |
+| `text-xs` / `text-[11px]` | metadata, captions, chips |
 
-Stagger delays (`delay-1`…`delay-8`, 80ms apart) are used for sequential
-reveal — most visibly in the GraphRAG node chain and the Trust Center
-execution timeline, where each step should feel like it's activating in
-order, not appearing all at once.
+One `<h1>` per page (the `PageHeader`). Sections are `<h2 class="text-h3">`.
 
-## Core primitives (`components/ui/*`)
+---
 
-- **`Card`** — `variant`: `default` | `glass` | `glow-brand` | `glow-accent`; `interactive` adds hover lift. Composed with `CardHeader`/`CardTitle`/`CardDescription`/`CardContent`/`CardFooter`.
-- **`Badge`** — `variant`: `default` | `positive` | `warning` | `danger` | `muted` | `outline`. Used for status, route labels, and stored-fact/inference indicators.
-- **`Button`** — `variant`: `primary` (gradient) | `secondary` | `ghost` | `outline` | `destructive` | `link`; `size`: `sm` | `default` | `lg` | `xl` | `icon`.
-- **`Progress`** — always needs an `aria-label` (axe-audited requirement — see `CURRENT_CHECKPOINT.md`).
-- **`EmptyState`** / **`ErrorState`** — every data-driven page must handle loading/empty/error. `ErrorState` takes `isPermissionDenied` for 403s (renders calmly, no "Try again" loop) and `titleAs="h1"` when it's the page's only content.
-- **`Skeleton`** — shimmer placeholder, sized to approximate the real content's layout.
+## 3. Spacing & layout
 
-## Page anatomy convention
+4px base. Page content: `mx-auto max-w-6xl` (wide analytics) or `max-w-2xl`
+(focused flows), `space-y-8` between sections, `space-y-4` inside a section.
+Panels pad `p-4`–`p-6`; the `PageHeader` pads `px-6 py-6 md:px-8 md:py-7`.
+Gaps between cards: `gap-3` (tiles) / `gap-4` (cards).
 
-Every top-level page (`/graphrag`, `/experiment-lab`, `/research-lab`,
-etc.) follows the same shape, established in this pass and the one
-before it:
+---
 
-1. A `bg-mesh` hero block: icon badge in a `bg-gradient-brand` square,
-   `text-h1` title, one-sentence `text-muted` subtitle, relevant status
-   badges.
-2. Primary content in `Card`s, `animate-fade-up` with incrementing
-   `delay-N`.
-3. The single most important card (a live result, a root-cause chain, a
-   signature reveal) gets `variant="glow-brand"`.
-4. Loading → `Skeleton`; empty → `EmptyState` with an actionable CTA;
-   error → `ErrorState`, `isPermissionDenied` for 403s.
+## 4. Radius
 
-## Role-dashboard accent convention
+`--radius-sm .5rem` (chips, inner tiles) · `--radius-md .9rem` (buttons,
+inputs, nav items) · `--radius-lg 1.25rem` (panels/cards) · `--radius-xl
+1.75rem` (page header, modals) · `--radius-full` (pills, avatars, dots).
 
-The four role dashboards share the same card/type system but each gets a
-distinct accent gradient in its hero block so they feel purposefully
-different while staying part of one product: Admin uses the primary
-brand gradient, Faculty uses `--accent-2`→`--accent` (teal/cyan,
-"teaching"), Placement uses `--accent`→`--accent-2` (institutional),
-Recruiter uses `--brand-2`→`--brand` (magenta, "external-facing"). The
-student Career OS dashboard remains the visual hero of the product — none
-of the role dashboards reuse its `glow-brand` treatment.
+---
+
+## 5. Elevation
+
+A four‑step ladder — never invent a shadow.
+
+`--shadow-xs` resting panels · `--shadow-md` hover / raised / tooltips ·
+`--shadow-lg` modals, popovers, the reel rail · `--shadow-glow-brand` the one
+"this is the important thing" treatment (hero chip, active dream job).
+
+---
+
+## 6. Surface hierarchy
+
+`page` → `.ds-panel` → `.ds-panel-raised`. Each step = **one** unit more
+contrast and elevation. `.ds-inset` is a recessed area *inside* a panel
+(muted bg, softer border). Glass (`.card-glass`, `.glass-panel`) is reserved
+for overlays floating above real content.
+
+---
+
+## 7. Iconography
+
+`lucide-react`, `1.5` stroke, sized `h-4 w-4` inline / `h-5 w-5` in header
+chips / `h-3–3.5` in chips. Icons are functional, never ornamental; one per
+nav item, one per section header at most.
+
+---
+
+## 8. Motion language
+
+Tokens (`globals.css`): `--dur-fast 140ms` (hover/press/toggle) ·
+`--dur-base 260ms` (element enter/exit, panels) · `--dur-slow 520ms` (hero,
+orchestrated) · `--ease-out` (decelerate to rest — most UI) · `--ease-spring`
+(confident overshoot — primary actions, active indicators).
+
+Rules:
+- **Motion = meaning.** An element moves because its *state or relevance
+  changed*. No idle decorative loops except the single `.ds-live-dot` pulse
+  (system online) and hero aurora.
+- **One enter gesture:** `<Reveal>` / `.ds-reveal` — a short fade + 12px rise
+  as content scrolls in, one‑shot, staggered by `delay`.
+- **State transitions animate:** active nav accent slides (`layoutId`),
+  numbers roll (`CountUp`), progress bars grow from 0, tab indicators glide.
+- **Primary actions** get a spark + magnetic pull (`ClickSpark`, `Magnetic`)
+  — used sparingly (the 2–3 real CTAs on a page).
+- Everything respects `prefers-reduced-motion` (global rule zeroes durations;
+  `.ds-reveal` renders in place).
+
+---
+
+## 9. Card language
+
+`.ds-panel` is the card. Add `.ds-panel-interactive` for a hover lift on
+clickable cards, `.ds-panel-raised` for the one hero card on a page. A card
+has: an optional header row (icon chip + title + meta), a body, and at most
+one primary action. No nested cards — use `.ds-inset` for sub‑regions and a
+`.ds-hairline` to divide. Legacy `.card-premium` is being migrated to
+`.ds-panel`.
+
+---
+
+## 10. Navigation language
+
+Left rail, grouped into labelled clusters (Overview / Prepare / Intelligence /
+Trust). Items use `.ds-nav-item`; the active route gets a soft brand tint and
+a **3px left accent bar** (not a filled pill) — it should read like an OS
+sidebar. The top bar carries the current section name on the left and a
+`.ds-live-dot` "AI online" indicator + theme toggle on the right.
+
+---
+
+## 11. Chart language
+
+`lib/chart-theme.ts` — one grammar for all Recharts surfaces: hairline
+`3 3` grid (horizontal only), no axis lines, 10px muted tick labels, a single
+elevated tooltip (`--background-elevated`, radius 12, `--shadow-md`). Series
+colours come from `chartSeries` (brand first, then accent, then violet) —
+never a rainbow. Radial gauges use brand with a `--surface-muted` track.
+
+---
+
+## 12. Doing a redesign
+
+1. Page opens with `<PageHeader>`.
+2. Content is `<Section>` blocks (`eyebrow` + `text-h3` title).
+3. Numbers → `<Stat>` / `<StatGrid>`. Charts → `chart-theme` props.
+4. Cards → `.ds-panel` (+ `.ds-panel-interactive` if clickable).
+5. Wrap sections in `<Reveal delay={n}>` for the enter cascade.
+6. Preserve every hook, query, route and handler — this is a visual layer
+   over unchanged logic.

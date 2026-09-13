@@ -22,9 +22,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Reveal } from "@/components/ui/reveal";
+import { Section } from "@/components/ui/section";
+import { Stat, StatGrid } from "@/components/ui/stat";
 import { useCountUp } from "@/hooks/use-count-up";
 import { useDashboard } from "@/hooks/use-dashboard";
-import { useStaggerReveal } from "@/hooks/use-stagger-reveal";
 import { titleCase } from "@/lib/utils";
 
 function StatNumber({ value, className }: { value: number | null | undefined; className?: string }) {
@@ -38,7 +41,6 @@ function CountNumber({ value }: { value: number }) {
 
 function DashboardBody() {
   const { data, isLoading, isError, error, refetch } = useDashboard();
-  const statsRef = useStaggerReveal<HTMLDivElement>(data?.student_name, { delay: 90 });
 
   if (isLoading) return <DashboardSkeleton />;
 
@@ -70,122 +72,111 @@ function DashboardBody() {
   }
 
   const twin = data.career_twin;
+  const firstName = data.student_name.split(" ")[0];
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-6xl space-y-8">
       {twin && twin.milestones.length > 0 && <MilestoneBanner milestones={twin.milestones} />}
 
-      <div className="animate-fade-up relative overflow-hidden rounded-[var(--radius-xl)] border border-border bg-mesh p-8 md:p-10">
-        <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-gradient-radial-brand blur-3xl opacity-70" aria-hidden="true" />
-        <div className="relative flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] bg-gradient-brand text-lg font-bold text-brand-foreground shadow-[var(--shadow-glow-brand)]">
-                {data.student_name.slice(0, 1)}
-              </span>
-              <h1 className="text-h1 text-foreground">Welcome back, {data.student_name.split(" ")[0]}</h1>
-            </div>
-            {data.target_role ? (
-              <p className="relative mt-3 max-w-2xl text-sm text-muted">
+      <Reveal>
+        <PageHeader
+          eyebrow="Career OS"
+          title={`Welcome back, ${firstName}`}
+          description={
+            data.target_role ? (
+              <>
                 Targeting <span className="font-medium text-foreground">{data.target_role.title}</span> ·{" "}
-                {titleCase(data.target_role.seniority)} · Career Twin version {twin?.version ?? 0}
-              </p>
-            ) : null}
-          </div>
-          {data.priority_weakness ? (
-            <Badge variant="warning" className="animate-pulse-glow px-3 py-1 text-xs">
-              Priority: {titleCase(data.priority_weakness.component_type.replace("_readiness", ""))}
-            </Badge>
-          ) : null}
+                {titleCase(data.target_role.seniority)} · Career Twin v{twin?.version ?? 0}
+              </>
+            ) : (
+              "Set a target role to start building your Career Twin."
+            )
+          }
+          actions={
+            data.priority_weakness ? (
+              <Badge variant="warning" className="px-3 py-1 text-xs">
+                Priority: {titleCase(data.priority_weakness.component_type.replace("_readiness", ""))}
+              </Badge>
+            ) : undefined
+          }
+        />
+      </Reveal>
+
+      <Reveal delay={60}>
+        <StatGrid className="lg:grid-cols-3">
+          <Stat
+            label="Overall readiness"
+            value={<StatNumber value={twin?.overall_score} />}
+            delta={twin?.score_delta ?? null}
+            hint={
+              twin?.score_delta === null || twin?.score_delta === undefined ? "first snapshot" : "since last update"
+            }
+            icon={Gauge}
+          />
+          <Stat
+            label="Career Twin confidence"
+            value={<StatNumber value={twin?.overall_confidence} />}
+            hint={`version ${twin?.version ?? 0}`}
+            icon={Sparkles}
+            accent="var(--color-accent-2)"
+          />
+          <Stat
+            label="Evidence collected"
+            value={<CountNumber value={twin?.evidence_count ?? 0} />}
+            hint="items across all components"
+            icon={Layers}
+            accent="var(--color-positive)"
+          />
+        </StatGrid>
+      </Reveal>
+
+      <Reveal delay={90}>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ReadinessTrendChart />
+          {twin ? <EvidenceCompositionChart components={twin.components} /> : null}
         </div>
+      </Reveal>
 
-        <div ref={statsRef} className="relative mt-6 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-[var(--radius-lg)] border border-border bg-surface/70 p-4 backdrop-blur">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-muted">Overall readiness</p>
-                <p className="text-metric text-gradient-brand">
-                  <StatNumber value={twin?.overall_score} />
-                </p>
-                {twin?.score_delta !== null && twin?.score_delta !== undefined ? (
-                  <p className="mt-1 text-xs font-medium text-positive">
-                    {twin.score_delta >= 0 ? "+" : ""}
-                    {Math.round(twin.score_delta * 100)}% since last update
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs text-muted">First snapshot</p>
-                )}
-              </div>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-gradient-brand shadow-[var(--shadow-glow-brand)]">
-                <Gauge className="h-4 w-4 text-brand-foreground" aria-hidden="true" />
-              </span>
+      <Reveal delay={120}>
+        <Section eyebrow="Career Twin" title="Skill readiness overview">
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card variant="glow-brand" className="lg:col-span-2">
+              <CardContent className="pt-5">
+                {twin ? <ReadinessRadar components={twin.components} /> : null}
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {twin?.components.map((component) => (
+                    <ComponentScoreCard key={component.component_type} component={component} compact />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+            <div className="space-y-4">
+              <MissionCard mission={data.mission} />
+              <TrustIndicator trust={data.system_trust} />
+              <CareActivityCard />
             </div>
           </div>
-          <div className="rounded-[var(--radius-lg)] border border-border bg-surface/70 p-4 backdrop-blur">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-muted">Career Twin confidence</p>
-                <p className="text-metric text-foreground">
-                  <StatNumber value={twin?.overall_confidence} />
-                </p>
-                <p className="mt-1 text-xs text-muted">Version {twin?.version ?? 0}</p>
-              </div>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-accent-2/15 text-accent-2">
-                <Sparkles className="h-4 w-4" aria-hidden="true" />
-              </span>
-            </div>
+        </Section>
+      </Reveal>
+
+      <Reveal delay={60}>
+        <Section eyebrow="Inputs" title="Your material">
+          <div className="grid gap-4 md:grid-cols-3">
+            <ResumeStatusCard status={data.resume_status} />
+            <JobDescriptionStatusCard status={data.job_description_status} />
+            <QuickActions />
           </div>
-          <div className="rounded-[var(--radius-lg)] border border-border bg-surface/70 p-4 backdrop-blur">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-muted">Evidence collected</p>
-                <p className="text-metric text-foreground">
-                  <CountNumber value={twin?.evidence_count ?? 0} />
-                </p>
-                <p className="mt-1 text-xs text-muted">items across all components</p>
-              </div>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-positive/15 text-positive">
-                <Layers className="h-4 w-4" aria-hidden="true" />
-              </span>
-            </div>
+        </Section>
+      </Reveal>
+
+      <Reveal delay={60}>
+        <Section eyebrow="Activity" title="What changed recently">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <EvidenceFeed evidence={data.recent_evidence} />
+            <TwinTimeline updates={data.recent_twin_updates} />
           </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ReadinessTrendChart />
-        {twin ? <EvidenceCompositionChart components={twin.components} /> : null}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card variant="glow-brand" className="animate-fade-up delay-2 lg:col-span-2">
-          <CardContent className="pt-5">
-            <h2 className="mb-3 text-h3 text-foreground">Skill readiness overview</h2>
-            {twin ? <ReadinessRadar components={twin.components} /> : null}
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {twin?.components.map((component) => (
-                <ComponentScoreCard key={component.component_type} component={component} compact />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-        <div className="animate-fade-up delay-3 space-y-4">
-          <MissionCard mission={data.mission} />
-          <TrustIndicator trust={data.system_trust} />
-          <CareActivityCard />
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <ResumeStatusCard status={data.resume_status} />
-        <JobDescriptionStatusCard status={data.job_description_status} />
-        <QuickActions />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <EvidenceFeed evidence={data.recent_evidence} />
-        <TwinTimeline updates={data.recent_twin_updates} />
-      </div>
+        </Section>
+      </Reveal>
     </div>
   );
 }

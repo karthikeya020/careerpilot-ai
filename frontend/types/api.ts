@@ -43,6 +43,7 @@ export interface StudentProfileOut {
   college_year: string | null;
   branch: string | null;
   github_username: string | null;
+  leetcode_username: string | null;
   camera_consent: boolean;
   onboarding_completed: boolean;
   primary_target_role: TargetRoleOut | null;
@@ -79,6 +80,146 @@ export interface GithubProfileOut {
   activity_heatmap: GithubActivityDayOut[];
   top_repos: GithubRepoOut[];
   last_synced_at: string | null;
+}
+
+export type LeetCodeProfileStatus = "not_configured" | "ok" | "not_found" | "unavailable";
+
+export interface LeetCodeLanguageStatOut {
+  language: string;
+  problems_solved: number;
+}
+
+export interface LeetCodeActivityDayOut {
+  date: string;
+  count: number;
+}
+
+export interface LeetCodeContestOut {
+  title: string;
+  start_time: string | null;
+  ranking: number | null;
+  problems_solved: number | null;
+  total_problems: number | null;
+}
+
+export interface LeetCodeProfileOut {
+  status: LeetCodeProfileStatus;
+  username: string | null;
+  real_name: string | null;
+  avatar_url: string | null;
+  profile_url: string | null;
+  ranking: number | null;
+  total_solved: number;
+  total_questions: number;
+  easy_solved: number;
+  easy_total: number;
+  medium_solved: number;
+  medium_total: number;
+  hard_solved: number;
+  hard_total: number;
+  acceptance_rate: number | null;
+  current_streak_days: number;
+  longest_streak_days: number;
+  active_days_last_year: number;
+  total_active_days: number;
+  activity_heatmap: LeetCodeActivityDayOut[];
+  language_stats: LeetCodeLanguageStatOut[];
+  badges_count: number;
+  contests_attended: number;
+  contest_rating: number | null;
+  contest_global_ranking: number | null;
+  contest_top_percentage: number | null;
+  recent_contests: LeetCodeContestOut[];
+  last_synced_at: string | null;
+}
+
+export interface DailyGoalQuestionOut {
+  question_id: string;
+  prompt: string;
+  domain_slug: string;
+  domain_name: string;
+  concept_slug: string;
+  concept_name: string;
+  difficulty: number;
+  difficulty_band: DifficultyBand;
+  done_today: boolean;
+}
+
+export interface DailyGoalOut {
+  goal: string | null;
+  date: string;
+  matched_domains: string[];
+  target_per_day: number;
+  completed_today: number;
+  questions: DailyGoalQuestionOut[];
+}
+
+export interface LeetCodeCompletionOut {
+  slug: string;
+  title: string;
+  difficulty: string;
+  concept_slug: string | null;
+  domain_slug: string | null;
+  completed_at: string;
+  analyzed_at: string | null;
+  has_analysis: boolean;
+}
+
+export interface CodeReviewOut {
+  summary: string;
+  strengths: string[];
+  improvements: string[];
+  time_complexity: string;
+  space_complexity: string;
+  complexity_explanation: string;
+  how_to_think: string;
+  ai_generated: boolean;
+}
+
+export interface SimilarProblemOut {
+  slug: string;
+  title: string;
+  difficulty: string;
+  url: string;
+}
+
+export interface LeetCodeAnalysisOut {
+  slug: string;
+  title: string;
+  how_to_think: string;
+  similar_problems: SimilarProblemOut[];
+  language: string | null;
+  code: string | null;
+  review: CodeReviewOut | null;
+  analyzed_at: string | null;
+}
+
+export type LeetCodeRecommendationSource = "assessment" | "profile" | "no_weaknesses";
+
+export interface LeetCodeRecommendedProblemOut {
+  slug: string;
+  title: string;
+  difficulty: "Easy" | "Medium" | "Hard";
+  url: string;
+}
+
+export interface WeaknessGroupOut {
+  concept_slug: string | null;
+  concept_name: string;
+  domain_slug: string;
+  domain_name: string;
+  accuracy: number | null;
+  answered: number;
+  focus: string;
+  problems: LeetCodeRecommendedProblemOut[];
+}
+
+export interface LeetCodeRecommendationsOut {
+  source: LeetCodeRecommendationSource;
+  summary: string;
+  weakness_threshold: number;
+  groups: WeaknessGroupOut[];
+  disclaimer: string;
 }
 
 export interface SkillOut {
@@ -121,6 +262,82 @@ export interface TrackedJobOut {
   id: string;
   created_at: string;
   match: JobListingMatchOut;
+}
+
+export type LiveJobSkillImportance = "core" | "strong" | "familiar";
+
+export interface LiveJobSkillOut {
+  name: string;
+  importance: LiveJobSkillImportance;
+}
+
+export interface LiveJobOut {
+  id: string;
+  company: string;
+  title: string;
+  location: string;
+  remote: boolean;
+  url: string;
+  sector: string;
+  source: string;
+  posted_at: string | null;
+  team: string | null;
+  summary: string;
+  description: string;
+  responsibilities: string[];
+  requirements: string[];
+  skills: LiveJobSkillOut[];
+  comp_note: string | null;
+  is_live: boolean;
+  is_internship: boolean;
+}
+
+export interface LiveJobFeedOut {
+  jobs: LiveJobOut[];
+  next_cursor: number;
+  total: number;
+  live: boolean;
+}
+
+export interface LiveJobSearchOut {
+  jobs: LiveJobOut[];
+  total: number;
+  live: boolean;
+}
+
+export interface SkillMatchOut {
+  readiness: number | null;
+  matched: string[];
+  partial: string[];
+  missing: string[];
+}
+
+export type RoadmapDifficulty = "brutal" | "hard" | "achievable";
+
+export interface RoadmapAction {
+  text: string;
+  link: string | null;
+}
+
+export interface RoadmapPhase {
+  title: string;
+  weeks: string;
+  why: string;
+  actions: RoadmapAction[];
+  milestone: string;
+}
+
+export interface JobRoadmapOut {
+  company: string;
+  title: string;
+  sector: string;
+  seniority: string;
+  difficulty: RoadmapDifficulty;
+  bar: string;
+  total_weeks: number;
+  summary: string;
+  skills_focus: string[];
+  phases: RoadmapPhase[];
 }
 
 export interface GapPlanItemOut {

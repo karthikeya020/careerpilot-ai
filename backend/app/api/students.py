@@ -5,12 +5,13 @@ from app.core.db import get_db
 from app.core.deps import get_current_student_profile
 from app.models.student import StudentProfile
 from app.schemas.github_profile import GithubProfileOut
+from app.schemas.leetcode_profile import LeetCodeProfileOut
 from app.schemas.student import (
     SetCameraConsentRequest,
     StudentProfileOut,
     StudentProfileUpdateRequest,
 )
-from app.services import github_profile_service
+from app.services import github_profile_service, leetcode_profile_service
 from app.services.student_service import set_camera_consent, update_profile_details
 
 router = APIRouter(prefix="/students", tags=["students"])
@@ -35,6 +36,15 @@ def get_my_github_profile(student_profile: StudentProfile = Depends(get_current_
     if not student_profile.github_username:
         return GithubProfileOut(status="not_configured")
     return github_profile_service.fetch_profile(student_profile.github_username)
+
+
+@router.get("/me/leetcode-profile", response_model=LeetCodeProfileOut)
+def get_my_leetcode_profile(
+    student_profile: StudentProfile = Depends(get_current_student_profile),
+) -> LeetCodeProfileOut:
+    if not student_profile.leetcode_username:
+        return LeetCodeProfileOut(status="not_configured")
+    return leetcode_profile_service.fetch_profile(student_profile.leetcode_username)
 
 
 @router.put("/me/camera-consent", status_code=204)

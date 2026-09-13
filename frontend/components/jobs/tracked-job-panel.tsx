@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { JobGapSimulator } from "@/components/jobs/job-gap-simulator";
+import { JobRoadmap } from "@/components/jobs/job-roadmap";
 import { formatPercent } from "@/lib/utils";
 import type { TrackedJobOut } from "@/types/api";
 
@@ -53,6 +54,11 @@ export function TrackedJobPanel({ tracked, onRemove }: { tracked: TrackedJobOut;
 
         <div className="border-t border-border pt-4">
           <JobGapSimulator listingId={listing.id} />
+        </div>
+
+        <div className="border-t border-border pt-4">
+          <p className="mb-2 text-xs font-semibold text-foreground">Your roadmap to crack {listing.company}</p>
+          <JobRoadmap listingId={listing.id} />
         </div>
       </CardContent>
     </Card>

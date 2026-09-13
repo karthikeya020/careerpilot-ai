@@ -1348,3 +1348,499 @@ EXTRA_QUESTIONS_EXISTING = [
         "target_role_relevance": ["Python", "Software Engineer"],
     },
 ]
+
+# ============================================================================
+# BANK V3 -- hard, concept- and implementation-level questions (difficulty 4-5)
+# on the ALREADY-SEEDED domains/concepts (sql, python, javascript, dsa, oop,
+# java). Referenced by (domain_slug, concept_slug); the follow-up migration
+# looks the concept_id up in the DB, exactly like EXTRA_QUESTIONS_EXISTING.
+# Purely additive -- never edits a row from an earlier migration.
+# ============================================================================
+BANK_V3_QUESTIONS = [
+    # ------------------------------------------------------------------ SQL
+    {
+        "domain": "sql", "concept": "subqueries", "question_type": "concept_explanation", "difficulty": 5,
+        "prompt": "Why can `WHERE col NOT IN (SELECT other_col FROM t)` return zero rows unexpectedly, and what should you use instead?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["NULL", "NOT IN", "three-valued logic", "unknown", "NOT EXISTS"],
+            "sample_answer": "If the subquery returns even one NULL, `NOT IN` evaluates to UNKNOWN for every outer row "
+            "(x <> NULL is never TRUE under three-valued logic), so the whole predicate filters everything out. Use "
+            "`NOT EXISTS` with a correlated subquery, or add `WHERE other_col IS NOT NULL` to the inner query.",
+        },
+        "explanation": "A correct answer identifies the NULL-in-subquery + three-valued-logic cause and recommends NOT EXISTS.",
+        "target_role_relevance": ["SQL", "Data Engineer"],
+    },
+    {
+        "domain": "sql", "concept": "aggregate_functions", "question_type": "multiple_choice", "difficulty": 4,
+        "prompt": "You need a running total per customer ordered by date, WITHOUT collapsing the individual order rows. What do you use?",
+        "options": [
+            {"id": "a", "text": "A window function: SUM(amount) OVER (PARTITION BY customer_id ORDER BY order_date)"},
+            {"id": "b", "text": "GROUP BY customer_id with SUM(amount)"},
+            {"id": "c", "text": "A correlated subquery in the WHERE clause"},
+            {"id": "d", "text": "DISTINCT with ORDER BY"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Window functions compute an aggregate over a frame of rows while keeping every row; GROUP BY would collapse them.",
+        "target_role_relevance": ["SQL", "Data Analyst"],
+    },
+    {
+        "domain": "sql", "concept": "indexes", "question_type": "concept_explanation", "difficulty": 5,
+        "prompt": "A composite index on (last_name, first_name) exists. Explain which of these it helps and why: (1) WHERE last_name = ?, (2) WHERE first_name = ?, (3) WHERE last_name = ? ORDER BY first_name.",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["leftmost prefix", "leftmost", "first_name alone", "sorted", "ORDER BY"],
+            "sample_answer": "The index is sorted by last_name, then first_name, so it serves the leftmost-prefix queries: "
+            "(1) is a direct range/seek on last_name; (3) is a seek on last_name plus the ORDER BY first_name comes free "
+            "because within one last_name the entries are already ordered by first_name. (2) filtering by first_name alone "
+            "cannot use the index for a seek because first_name is not a prefix -- it would need a full scan.",
+        },
+        "explanation": "A correct answer invokes the leftmost-prefix rule and notes the ordered second column serves ORDER BY.",
+        "target_role_relevance": ["SQL", "Backend Engineer"],
+    },
+    {
+        "domain": "sql", "concept": "aggregate_functions", "question_type": "code_reading", "difficulty": 4,
+        "prompt": "A table `reviews(product_id, rating)` has some rows where `rating IS NULL`. Explain the difference between `COUNT(*)`, `COUNT(rating)`, and `AVG(rating)` for a given product.",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["COUNT(*)", "all rows", "COUNT(rating)", "non-null", "AVG", "ignores NULL"],
+            "sample_answer": "`COUNT(*)` counts every row including NULL-rating rows. `COUNT(rating)` counts only rows where "
+            "rating is not NULL. `AVG(rating)` sums the non-NULL ratings and divides by `COUNT(rating)` -- it ignores "
+            "NULLs entirely rather than treating them as zero.",
+        },
+        "explanation": "A correct answer distinguishes row count vs non-null count and states AVG divides by the non-null count.",
+        "target_role_relevance": ["SQL", "Data Analyst"],
+    },
+    {
+        "domain": "sql", "concept": "normalization", "question_type": "multiple_choice", "difficulty": 4,
+        "prompt": "A table has columns (student_id, student_dept, dept_head). `dept_head` depends on `student_dept`, which depends on `student_id`. Which normal form does this violate, and what fixes it?",
+        "options": [
+            {"id": "a", "text": "3NF -- a transitive dependency (non-key -> non-key); split dept into its own table keyed by student_dept"},
+            {"id": "b", "text": "1NF -- there is a repeating group; add more rows"},
+            {"id": "c", "text": "2NF -- a partial dependency on part of a composite key; there is no composite key here so it's fine"},
+            {"id": "d", "text": "BCNF only -- no lower form is violated"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "dept_head is transitively dependent on the key via student_dept -- the textbook 3NF violation, fixed by extracting a Department table.",
+        "target_role_relevance": ["SQL", "Backend Engineer"],
+    },
+    # --------------------------------------------------------------- Python
+    {
+        "domain": "python", "concept": "functions", "question_type": "code_reading", "difficulty": 5,
+        "prompt": "What does this print, and why?\n\n    def append_to(x, target=[]):\n        target.append(x)\n        return target\n\n    print(append_to(1))\n    print(append_to(2))",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["mutable default", "evaluated once", "def", "[1]", "[1, 2]", "shared"],
+            "sample_answer": "It prints `[1]` then `[1, 2]`. The default `[]` is evaluated once when the function is "
+            "defined, not on each call, so every call that omits `target` mutates the same shared list. The fix is "
+            "`target=None` then `if target is None: target = []` inside the body.",
+        },
+        "explanation": "A correct answer names the mutable-default-argument trap and the None sentinel fix.",
+        "target_role_relevance": ["Python", "Software Engineer"],
+    },
+    {
+        "domain": "python", "concept": "functions", "question_type": "code_reading", "difficulty": 5,
+        "prompt": "What list does this produce and why?\n\n    funcs = [lambda: i for i in range(3)]\n    print([f() for f in funcs])",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["late binding", "closure", "[2, 2, 2]", "i", "default argument", "loop variable"],
+            "sample_answer": "It prints `[2, 2, 2]`. Each lambda closes over the variable `i`, not its value at "
+            "creation time; by the time the lambdas are called the loop has finished and `i == 2`. Capture per-iteration "
+            "with `lambda i=i: i`.",
+        },
+        "explanation": "A correct answer explains Python closures capture the variable (late binding) and gives the default-arg capture fix.",
+        "target_role_relevance": ["Python", "Software Engineer"],
+    },
+    {
+        "domain": "python", "concept": "data_types", "question_type": "concept_explanation", "difficulty": 4,
+        "prompt": "Explain when `a == b` is True but `a is b` is False, and when `a is b` can be surprisingly True for two separately written literals.",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["equality", "identity", "value", "same object", "small int cache", "interning"],
+            "sample_answer": "`==` compares value; `is` compares identity (same object in memory). Two lists `[1,2] == [1,2]` "
+            "is True but `is` is False -- different objects. `is` can be surprisingly True for small integers (CPython "
+            "caches roughly -5..256) and some interned strings, so `256 is 256` is True while `257 is 257` may be False "
+            "depending on context. Never use `is` for value comparison; use it only for `None`/sentinels.",
+        },
+        "explanation": "A correct answer separates value vs identity and cites the small-int / string interning caching.",
+        "target_role_relevance": ["Python"],
+    },
+    {
+        "domain": "python", "concept": "functions", "question_type": "concept_explanation", "difficulty": 4,
+        "prompt": "Why should a decorator use `functools.wraps`, and what breaks if it doesn't?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["__name__", "__doc__", "metadata", "wrapper", "introspection", "functools.wraps"],
+            "sample_answer": "Without `@functools.wraps(func)` on the inner wrapper, the decorated function takes on the "
+            "wrapper's identity: `__name__` becomes 'wrapper', `__doc__` and `__wrapped__` are lost, and signature "
+            "introspection, help(), and some frameworks that dispatch on function name break. `wraps` copies that "
+            "metadata from the original onto the wrapper.",
+        },
+        "explanation": "A correct answer names the lost dunder metadata (__name__/__doc__) and the introspection breakage.",
+        "target_role_relevance": ["Python", "Software Engineer"],
+    },
+    {
+        "domain": "python", "concept": "exceptions", "question_type": "code_reading", "difficulty": 5,
+        "prompt": "What does this return, and what is the danger of the pattern?\n\n    def f():\n        try:\n            return 1\n        finally:\n            return 2",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["finally", "2", "overrides", "return", "swallow", "exception"],
+            "sample_answer": "It returns `2`. A `return` (or `break`/`continue`) in a `finally` block overrides any "
+            "return or in-flight exception from the `try` block. That means a `finally: return` silently swallows "
+            "exceptions raised in `try`, which is why returning from `finally` is considered a bug.",
+        },
+        "explanation": "A correct answer states the result is 2 and that finally's return suppresses exceptions from try.",
+        "target_role_relevance": ["Python", "Software Engineer"],
+    },
+    {
+        "domain": "python", "concept": "dict_operations", "question_type": "concept_explanation", "difficulty": 4,
+        "prompt": "Compare `d.setdefault(k, expensive())` with `collections.defaultdict(expensive)` -- what is the subtle cost of each?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["setdefault", "always evaluated", "default factory", "missing key", "eager", "side effect"],
+            "sample_answer": "`d.setdefault(k, expensive())` always evaluates `expensive()` even when `k` is already "
+            "present -- the argument is computed before the call -- so it can waste work or trigger side effects. "
+            "`defaultdict(expensive)` only calls the factory on a genuinely missing key, but it also inserts that key on "
+            "any read via `d[k]`, so merely checking `d[missing]` mutates the dict.",
+        },
+        "explanation": "A correct answer notes setdefault's eager argument evaluation and defaultdict's insert-on-read.",
+        "target_role_relevance": ["Python", "Software Engineer"],
+    },
+    # ----------------------------------------------------------- JavaScript
+    {
+        "domain": "javascript", "concept": "js_async", "question_type": "code_reading", "difficulty": 5,
+        "prompt": "In what order do the numbers print?\n\n    console.log(1);\n    setTimeout(() => console.log(2), 0);\n    Promise.resolve().then(() => console.log(3));\n    console.log(4);",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["1", "4", "3", "2", "microtask", "macrotask", "event loop"],
+            "sample_answer": "1, 4, 3, 2. Synchronous code runs first (1, 4). Then the microtask queue drains before "
+            "any macrotask, so the resolved Promise's `.then` callback (3) runs. `setTimeout` schedules a macrotask, so "
+            "2 runs last, after the microtask queue is empty.",
+        },
+        "explanation": "A correct answer gives 1,4,3,2 and explains microtasks (Promise jobs) drain before macrotasks (setTimeout).",
+        "target_role_relevance": ["JavaScript", "Frontend Engineer"],
+    },
+    {
+        "domain": "javascript", "concept": "js_functions", "question_type": "concept_explanation", "difficulty": 5,
+        "prompt": "State the rules that determine the value of `this` in a regular function call, and how an arrow function differs.",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["call site", "method", "new", "call/apply/bind", "arrow", "lexical", "undefined", "strict"],
+            "sample_answer": "For a regular function `this` is set by the call site: `new` -> the new instance; explicit "
+            "`call`/`apply`/`bind` -> the given object; method call `obj.fn()` -> `obj`; otherwise (plain call) -> the "
+            "global object, or `undefined` in strict mode / modules. An arrow function has no own `this`; it captures "
+            "`this` lexically from the enclosing scope at definition time and cannot be rebound.",
+        },
+        "explanation": "A correct answer lists new/explicit/implicit/default binding and that arrows bind this lexically.",
+        "target_role_relevance": ["JavaScript", "Frontend Engineer"],
+    },
+    {
+        "domain": "javascript", "concept": "js_fundamentals", "question_type": "concept_explanation", "difficulty": 5,
+        "prompt": "Explain the Temporal Dead Zone. How do `let`/`const` differ from `var` with respect to hoisting?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["hoisted", "Temporal Dead Zone", "TDZ", "ReferenceError", "var", "undefined", "initialized"],
+            "sample_answer": "`var` declarations are hoisted and initialized to `undefined`, so reading one before its line "
+            "gives `undefined`. `let` and `const` are also hoisted but NOT initialized -- from the start of the block "
+            "until the declaration line they are in the Temporal Dead Zone, and any access throws a ReferenceError. "
+            "`const` additionally requires an initializer and forbids reassignment.",
+        },
+        "explanation": "A correct answer says let/const are hoisted-but-uninitialised (TDZ -> ReferenceError) vs var -> undefined.",
+        "target_role_relevance": ["JavaScript"],
+    },
+    {
+        "domain": "javascript", "concept": "js_fundamentals", "question_type": "multiple_selection", "difficulty": 4,
+        "prompt": "Which of these evaluate to `true`? (Select all that apply.)",
+        "options": [
+            {"id": "a", "text": "typeof NaN === 'number'"},
+            {"id": "b", "text": "NaN === NaN"},
+            {"id": "c", "text": "[] == false"},
+            {"id": "d", "text": "0.1 + 0.2 === 0.3"},
+            {"id": "e", "text": "typeof [] === 'object'"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a", "c", "e"]},
+        "explanation": "NaN is a number and is never equal to itself. `[] == false` is true via coercion ([] -> '' -> 0). "
+        "0.1 + 0.2 is 0.30000000000000004. Arrays report typeof 'object'.",
+        "target_role_relevance": ["JavaScript", "Frontend Engineer"],
+    },
+    {
+        "domain": "javascript", "concept": "js_arrays_objects", "question_type": "code_reading", "difficulty": 5,
+        "prompt": "What is logged, and why?\n\n    const a = { x: 1, nested: { y: 2 } };\n    const b = { ...a };\n    b.x = 9;\n    b.nested.y = 99;\n    console.log(a.x, a.nested.y);",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["shallow copy", "spread", "1", "99", "reference", "nested", "shared"],
+            "sample_answer": "It logs `1 99`. The spread `{ ...a }` makes a shallow copy: top-level primitives like `x` "
+            "are copied by value, so `a.x` stays 1. But `nested` is copied by reference -- `a.nested` and `b.nested` are "
+            "the same object -- so `b.nested.y = 99` is visible through `a`. A deep copy (structuredClone) avoids this.",
+        },
+        "explanation": "A correct answer gives `1 99` and explains spread is a shallow copy sharing nested object references.",
+        "target_role_relevance": ["JavaScript", "Frontend Engineer"],
+    },
+    {
+        "domain": "javascript", "concept": "js_async", "question_type": "multiple_choice", "difficulty": 4,
+        "prompt": "You fire 5 network requests and want ALL results, but must not fail the whole batch if one rejects. Which API?",
+        "options": [
+            {"id": "a", "text": "Promise.allSettled -- resolves once every promise settles, each result tagged {status, value|reason}"},
+            {"id": "b", "text": "Promise.all -- rejects as soon as any input rejects"},
+            {"id": "c", "text": "Promise.race -- settles with the first promise to settle"},
+            {"id": "d", "text": "Promise.any -- rejects only if every promise rejects"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Promise.allSettled never short-circuits; Promise.all rejects on the first rejection, losing the other results.",
+        "target_role_relevance": ["JavaScript", "Frontend Engineer"],
+    },
+    # ------------------------------------------------------------------ DSA
+    {
+        "domain": "dsa", "concept": "complexity", "question_type": "concept_explanation", "difficulty": 5,
+        "prompt": "A dynamic array doubles its capacity when full, which is an O(n) copy. Explain why appending is still O(1) amortized.",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["amortized", "doubling", "geometric series", "n + n/2 + n/4", "2n", "total work", "per operation"],
+            "sample_answer": "Over n appends the resize copies happen at sizes 1, 2, 4, ..., n, and 1 + 2 + 4 + ... + n < "
+            "2n total element copies (a geometric series). Adding the n cheap writes, total work is O(n), so the "
+            "amortized cost per append is O(1). Any single append can still be O(n), but that cost is 'paid off' by the "
+            "many O(1) appends around it.",
+        },
+        "explanation": "A correct answer uses the geometric-series bound (total copies < 2n) to get O(1) amortized.",
+        "target_role_relevance": ["Algorithms", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "sorting_searching", "question_type": "multiple_selection", "difficulty": 5,
+        "prompt": "Select every statement that is TRUE.",
+        "options": [
+            {"id": "a", "text": "Merge sort is stable but not in-place (O(n) extra space in the standard array version)"},
+            {"id": "b", "text": "Quicksort is in-place (O(log n) stack) but not stable"},
+            {"id": "c", "text": "Heapsort is in-place but not stable"},
+            {"id": "d", "text": "Comparison sorts can beat O(n log n) worst case"},
+            {"id": "e", "text": "Counting sort can be O(n + k) because it does not compare elements"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a", "b", "c", "e"]},
+        "explanation": "Only (d) is false: the comparison-sort lower bound is Omega(n log n). Non-comparison sorts like counting/radix sidestep it.",
+        "target_role_relevance": ["Algorithms", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "trees_graphs", "question_type": "concept_explanation", "difficulty": 5,
+        "prompt": "Why does plain BFS fail to find shortest paths on a weighted graph, and what do you use for (a) non-negative weights and (b) possibly-negative weights?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["BFS", "unit weight", "edges", "Dijkstra", "priority queue", "Bellman-Ford", "negative", "relax"],
+            "sample_answer": "BFS assumes every edge costs the same (1), so it explores in order of edge count, not path "
+            "weight -- a 3-edge path of weight 3 can beat a 1-edge path of weight 10, which BFS would wrongly pick. For "
+            "non-negative weights use Dijkstra (greedy with a min-priority-queue, settle the closest unfinished node). "
+            "For possibly-negative weights use Bellman-Ford (relax all edges V-1 times, and one more pass detects a "
+            "negative cycle).",
+        },
+        "explanation": "A correct answer ties BFS to uniform edge cost and names Dijkstra (non-negative) vs Bellman-Ford (negative).",
+        "target_role_relevance": ["Algorithms", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "trees_graphs", "question_type": "multiple_choice", "difficulty": 4,
+        "prompt": "How do you detect a cycle in a DIRECTED graph with DFS?",
+        "options": [
+            {"id": "a", "text": "Track three states (unvisited / in-progress / done); a cycle exists if DFS reaches a node currently 'in-progress' (on the recursion stack)"},
+            {"id": "b", "text": "A cycle exists if DFS ever reaches an already-visited node"},
+            {"id": "c", "text": "Count edges; a cycle exists iff edges >= vertices"},
+            {"id": "d", "text": "Run BFS and check for any cross edge"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "In a directed graph, revisiting a 'done' node is fine (a DAG has many). Only a back edge to a node still on the recursion stack means a cycle.",
+        "target_role_relevance": ["Algorithms", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "stacks_queues", "question_type": "concept_explanation", "difficulty": 5,
+        "prompt": "Explain how a monotonic stack solves 'next greater element' for every array position in O(n) total.",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["monotonic", "decreasing", "pop", "each element pushed and popped once", "amortized", "O(n)"],
+            "sample_answer": "Iterate left to right keeping a stack of indices whose values are strictly decreasing. For "
+            "each new element, pop every stack entry smaller than it -- the current element is their 'next greater' -- "
+            "then push the current index. Each index is pushed once and popped at most once, so the total work across "
+            "all n steps is O(n) even though a single step can pop many entries.",
+        },
+        "explanation": "A correct answer describes the decreasing stack and the each-element-pushed/popped-once amortized argument.",
+        "target_role_relevance": ["Algorithms", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "complexity", "question_type": "multiple_choice", "difficulty": 4,
+        "prompt": "By the Master Theorem, what is the solution to T(n) = 2T(n/2) + O(n)?",
+        "options": [
+            {"id": "a", "text": "O(n log n)"},
+            {"id": "b", "text": "O(n)"},
+            {"id": "c", "text": "O(n^2)"},
+            {"id": "d", "text": "O(log n)"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "n^(log_2 2) = n^1 matches the O(n) combine term (case 2), giving an extra log factor: O(n log n). This is merge sort.",
+        "target_role_relevance": ["Algorithms", "Software Engineer"],
+    },
+    {
+        "domain": "dsa", "concept": "arrays_strings", "question_type": "code_reading", "difficulty": 5,
+        "prompt": "This is meant to return the length of the longest substring without repeating characters. What bug makes it overcount, and how do you fix it?\n\n    def length_of_longest(s):\n        seen = {}\n        left = 0\n        best = 0\n        for right, ch in enumerate(s):\n            if ch in seen:\n                left = seen[ch] + 1\n            seen[ch] = right\n            best = max(best, right - left + 1)\n        return best",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["left", "move backwards", "max(left, seen[ch] + 1)", "duplicate outside window", "abba"],
+            "sample_answer": "When a repeated character was last seen BEFORE the current window's left edge, `left = "
+            "seen[ch] + 1` moves `left` backwards, growing the window past a real duplicate (e.g. 'abba' reports 3). Fix: "
+            "`left = max(left, seen[ch] + 1)` so the left edge never retreats.",
+        },
+        "explanation": "A correct answer spots that left can move backwards and fixes it with max(left, seen[ch] + 1).",
+        "target_role_relevance": ["Algorithms", "Software Engineer"],
+    },
+    # ------------------------------------------------------------------ OOP
+    {
+        "domain": "oop", "concept": "polymorphism", "question_type": "concept_explanation", "difficulty": 5,
+        "prompt": "State the Liskov Substitution Principle and give the classic Rectangle/Square example of violating it.",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["subtype", "substitutable", "behavioral", "invariant", "Square", "setWidth", "setHeight", "postcondition"],
+            "sample_answer": "LSP: objects of a subtype must be usable anywhere the supertype is expected without breaking "
+            "the program's correctness -- subclasses must honor the base type's contracts (preconditions no stronger, "
+            "postconditions no weaker, invariants preserved). Square extends Rectangle but overrides setWidth to also "
+            "change height (to keep sides equal). Code that relies on Rectangle's contract -- 'setWidth leaves height "
+            "unchanged' -- breaks when handed a Square, so Square is not a valid subtype of Rectangle.",
+        },
+        "explanation": "A correct answer states behavioral substitutability + contract rules and the Square.setWidth side effect.",
+        "target_role_relevance": ["Object-Oriented Programming", "Software Engineer"],
+    },
+    {
+        "domain": "oop", "concept": "inheritance", "question_type": "multiple_choice", "difficulty": 5,
+        "prompt": "Why do languages like Java forbid multiple class inheritance, and what is the usual recommended alternative?",
+        "options": [
+            {"id": "a", "text": "The diamond problem -- ambiguous method/state resolution when two parents share a base; prefer composition and interfaces"},
+            {"id": "b", "text": "It makes compilation slower; prefer marking classes final"},
+            {"id": "c", "text": "It breaks encapsulation entirely; prefer making all fields public"},
+            {"id": "d", "text": "There is no real reason; other languages allow it with no downside"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "The diamond problem creates ambiguity in which inherited implementation/state wins. 'Favor composition over inheritance' plus interfaces is the standard answer.",
+        "target_role_relevance": ["Object-Oriented Programming", "Software Engineer"],
+    },
+    {
+        "domain": "oop", "concept": "abstraction", "question_type": "concept_explanation", "difficulty": 4,
+        "prompt": "When would you choose an abstract class over an interface, and vice versa?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["shared implementation", "state", "single inheritance", "interface", "multiple", "contract", "capability"],
+            "sample_answer": "Use an abstract class when subclasses share real implementation code or mutable state and "
+            "form a genuine 'is-a' hierarchy -- but you spend the one inheritance slot. Use an interface to declare a "
+            "capability/contract that unrelated types can implement, to allow a type to satisfy many contracts, and when "
+            "you have no shared implementation (or only defaults). Modern practice: interface for the type, optional "
+            "abstract base for convenience.",
+        },
+        "explanation": "A correct answer contrasts shared state/impl + single inheritance (abstract class) vs multiple capability contracts (interface).",
+        "target_role_relevance": ["Object-Oriented Programming"],
+    },
+    {
+        "domain": "oop", "concept": "encapsulation", "question_type": "multiple_choice", "difficulty": 4,
+        "prompt": "Adding a public getter and setter for every private field is often criticized because...",
+        "options": [
+            {"id": "a", "text": "It exposes the internal representation as effectively public, so invariants aren't protected -- expose behavior/intent, not raw state"},
+            {"id": "b", "text": "Getters and setters are slower than direct field access and hurt performance"},
+            {"id": "c", "text": "It is a compile error in most languages"},
+            {"id": "d", "text": "It prevents the class from being subclassed"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Blanket accessors give the same coupling as public fields and let callers put the object in invalid states; good encapsulation exposes operations that keep invariants.",
+        "target_role_relevance": ["Object-Oriented Programming", "Software Engineer"],
+    },
+    {
+        "domain": "oop", "concept": "polymorphism", "question_type": "concept_explanation", "difficulty": 5,
+        "prompt": "Distinguish method overloading from overriding, and explain which is resolved at compile time vs run time.",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["overloading", "compile-time", "static", "signature", "overriding", "runtime", "dynamic dispatch", "actual type"],
+            "sample_answer": "Overloading: same method name, different parameter lists in the same type; the compiler picks "
+            "which one based on the static (declared) argument types -- compile-time / static dispatch. Overriding: a "
+            "subclass replaces a superclass method with the same signature; the call dispatches on the object's actual "
+            "runtime type -- run-time / dynamic dispatch. This is why calling an overridden method through a base-type "
+            "reference still runs the subclass version.",
+        },
+        "explanation": "A correct answer maps overloading -> compile-time/static and overriding -> runtime/dynamic dispatch on actual type.",
+        "target_role_relevance": ["Object-Oriented Programming", "Software Engineer"],
+    },
+    # ----------------------------------------------------------------- Java
+    {
+        "domain": "java", "concept": "java_multithreading", "question_type": "concept_explanation", "difficulty": 5,
+        "prompt": "What does `volatile` guarantee and what does it NOT guarantee? Why is `volatile int count; count++;` still not thread-safe?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["visibility", "happens-before", "no caching", "atomicity", "read-modify-write", "count++", "AtomicInteger", "synchronized"],
+            "sample_answer": "`volatile` guarantees visibility and ordering: a write is flushed so other threads see the "
+            "latest value (no stale cached copy), and it establishes happens-before between the write and subsequent "
+            "reads. It does NOT provide atomicity for compound actions. `count++` is a read-modify-write: two threads "
+            "can both read the same value, increment, and write back, losing an update. Use `AtomicInteger` "
+            "(incrementAndGet) or a `synchronized` block.",
+        },
+        "explanation": "A correct answer separates visibility/ordering (volatile does) from atomicity of read-modify-write (it doesn't).",
+        "target_role_relevance": ["Java", "Backend Engineer"],
+    },
+    {
+        "domain": "java", "concept": "java_collections", "question_type": "concept_explanation", "difficulty": 5,
+        "prompt": "State the equals()/hashCode() contract. What goes wrong if you put an object in a HashSet and then mutate a field used by hashCode()?",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["equal objects", "same hashCode", "consistent", "bucket", "mutate", "lost", "not found", "contains"],
+            "sample_answer": "Contract: if a.equals(b) then a.hashCode() == b.hashCode(); equal objects must have equal "
+            "hash codes, and hashCode must stay consistent while the object is in a hash structure. If you mutate a "
+            "field that feeds hashCode() after inserting into a HashSet/HashMap, the object now hashes to a different "
+            "bucket than the one it's stored in, so contains()/get()/remove() fail to find it -- it's effectively lost, "
+            "and the collection can even report size 1 while contains() returns false.",
+        },
+        "explanation": "A correct answer states equal => same hashCode + consistency, and that mutation strands the entry in the wrong bucket.",
+        "target_role_relevance": ["Java", "Backend Engineer"],
+    },
+    {
+        "domain": "java", "concept": "java_memory", "question_type": "multiple_choice", "difficulty": 4,
+        "prompt": "For `void m() { int x = 5; Point p = new Point(1, 2); }`, where do `x`, the `Point` object, and the reference `p` live?",
+        "options": [
+            {"id": "a", "text": "x and the reference p are on the thread's stack frame; the Point object is on the heap"},
+            {"id": "b", "text": "All three are on the heap"},
+            {"id": "c", "text": "All three are on the stack"},
+            {"id": "d", "text": "x is on the heap, p and the Point are on the stack"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "Local primitives and local reference variables live in the stack frame; the object they point to is allocated on the heap.",
+        "target_role_relevance": ["Java", "Software Engineer"],
+    },
+    {
+        "domain": "java", "concept": "java_multithreading", "question_type": "multiple_choice", "difficulty": 4,
+        "prompt": "You need a shared integer counter incremented by many threads, nothing else. Lowest-overhead correct choice?",
+        "options": [
+            {"id": "a", "text": "AtomicInteger with incrementAndGet() -- lock-free CAS, purpose-built for this"},
+            {"id": "b", "text": "A plain int marked volatile"},
+            {"id": "c", "text": "Wrap every access in synchronized on a shared lock -- always the only correct option"},
+            {"id": "d", "text": "A plain int -- the JVM makes ++ atomic"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "volatile doesn't make ++ atomic; a plain int is a data race. AtomicInteger uses CAS and is lighter than a lock for a single counter.",
+        "target_role_relevance": ["Java", "Backend Engineer"],
+    },
+    {
+        "domain": "java", "concept": "java_basics", "question_type": "code_reading", "difficulty": 5,
+        "prompt": "What does this print and why?\n\n    Integer a = 127, b = 127;\n    Integer c = 128, d = 128;\n    System.out.println((a == b) + \" \" + (c == d));",
+        "options": None,
+        "correct_answer": {
+            "keywords": ["Integer cache", "-128", "127", "autoboxing", "same object", "== compares references", "equals"],
+            "sample_answer": "It prints `true false`. Autoboxing via Integer.valueOf caches boxed values from -128 to 127, "
+            "so `a` and `b` are the same cached object and `a == b` (reference comparison) is true. 128 is outside the "
+            "cache, so `c` and `d` are distinct objects and `c == d` is false. Comparing boxed values should use "
+            "`equals()` or unbox to `int`.",
+        },
+        "explanation": "A correct answer cites the -128..127 Integer cache and that == compares references for boxed types.",
+        "target_role_relevance": ["Java", "Software Engineer"],
+    },
+    {
+        "domain": "java", "concept": "java_exceptions", "question_type": "multiple_choice", "difficulty": 4,
+        "prompt": "Which statement about checked vs unchecked exceptions in Java is correct?",
+        "options": [
+            {"id": "a", "text": "Checked exceptions (subclasses of Exception but not RuntimeException) must be declared or caught; unchecked (RuntimeException/Error) need not be"},
+            {"id": "b", "text": "Unchecked exceptions must always be declared in a throws clause"},
+            {"id": "c", "text": "Checked exceptions cannot be caught, only logged"},
+            {"id": "d", "text": "There is no compiler difference; the distinction is only a naming convention"},
+        ],
+        "correct_answer": {"correct_option_ids": ["a"]},
+        "explanation": "The compiler enforces handle-or-declare for checked exceptions; RuntimeException and Error are exempt.",
+        "target_role_relevance": ["Java", "Software Engineer"],
+    },
+]
+

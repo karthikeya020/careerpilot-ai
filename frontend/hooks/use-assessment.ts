@@ -7,6 +7,8 @@ import type {
   AssessmentAttemptOut,
   AssessmentDomainOut,
   AttemptProgressOut,
+  DailyGoalOut,
+  LeetCodeRecommendationsOut,
 } from "@/types/api";
 
 export function useAssessmentDomains() {
@@ -49,6 +51,8 @@ export function useSubmitResponse() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["assessment-activity"] });
       queryClient.invalidateQueries({ queryKey: ["assessment-analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["assessment-leetcode-recommendations"] });
+      queryClient.invalidateQueries({ queryKey: ["assessment-daily-goal"] });
       if (data.is_complete) {
         queryClient.invalidateQueries({ queryKey: ["dashboard"] });
         queryClient.invalidateQueries({ queryKey: ["career-twin"] });
@@ -85,5 +89,30 @@ export function useAssessmentAnalytics() {
   return useQuery({
     queryKey: ["assessment-analytics"],
     queryFn: () => api.get<AssessmentAnalyticsOut>("/assessments/analytics"),
+  });
+}
+
+export function useLeetCodeRecommendations() {
+  return useQuery({
+    queryKey: ["assessment-leetcode-recommendations"],
+    queryFn: () => api.get<LeetCodeRecommendationsOut>("/assessments/leetcode-recommendations"),
+  });
+}
+
+export function useDailyGoal() {
+  return useQuery({
+    queryKey: ["assessment-daily-goal"],
+    queryFn: () => api.get<DailyGoalOut>("/assessments/daily-goal"),
+  });
+}
+
+export function useSetDailyGoal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (goal: string) => api.put<DailyGoalOut>("/assessments/daily-goal", { goal }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["assessment-daily-goal"], data);
+      queryClient.invalidateQueries({ queryKey: ["student-profile"] });
+    },
   });
 }

@@ -58,6 +58,12 @@ export const profileDetailsSchema = z.object({
     .regex(/^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/, "Enter a valid GitHub username")
     .optional()
     .or(z.literal("")),
+  leetcode_username: z
+    .string()
+    .max(64)
+    .regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/, "Enter a valid LeetCode username")
+    .optional()
+    .or(z.literal("")),
 });
 export type ProfileDetailsFormValues = z.infer<typeof profileDetailsSchema>;
 

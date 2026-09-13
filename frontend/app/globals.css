@@ -42,7 +42,28 @@
   --shadow-glow-accent: 0 0 0 1px rgba(13, 148, 136, 0.12), 0 12px 40px -8px rgba(13, 148, 136, 0.24);
 
   --grid-line: rgba(20, 18, 31, 0.05);
+
+  /* ---- design system v2: focus + fine elevation ---- */
+  --ring: #5b3df6;
+  --shadow-xs: 0 1px 1px rgba(20, 18, 31, 0.04), 0 1px 2px rgba(20, 18, 31, 0.05);
+
   color-scheme: light;
+}
+
+/* ============================================================
+   MOTION LANGUAGE — one set of durations + easings for the app.
+   fast   = state feedback (hover, press, toggle)
+   base   = element enter/exit, panels, reveals
+   slow   = hero / orchestrated sequences
+   ease-out    = decelerate into rest (most UI)
+   ease-spring = confident overshoot (primary actions, active indicators)
+   ============================================================ */
+:root {
+  --dur-fast: 140ms;
+  --dur-base: 260ms;
+  --dur-slow: 520ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
 }
 
 .dark {
@@ -76,6 +97,10 @@
   --shadow-glow-accent: 0 0 0 1px rgba(45, 212, 198, 0.2), 0 0 48px -8px rgba(45, 212, 198, 0.4);
 
   --grid-line: rgba(255, 255, 255, 0.055);
+
+  --ring: #8b7bff;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+
   color-scheme: dark;
 }
 
@@ -97,6 +122,8 @@
   --color-positive: var(--positive);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-ring: var(--ring);
+  --color-surface-glass: var(--surface-glass);
   --radius-md: var(--radius);
   --radius-lg: var(--radius-lg);
   --radius-xl: var(--radius-xl);
@@ -492,6 +519,170 @@ body {
   animation: shimmer 1.8s ease-in-out infinite;
 }
 
+/* ============================================================
+   CAREERPILOT DESIGN SYSTEM — canonical primitives (v2)
+   Use these, not one-off class stacks, so every surface speaks
+   the same language. Documented in docs/design/CAREERPILOT_DESIGN_SYSTEM.md
+   ============================================================ */
+
+/* Surface hierarchy: page < panel < raised. Each step adds one unit of
+   contrast + elevation, never more. */
+.ds-panel {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+.ds-panel-interactive:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+.ds-panel-raised {
+  background: var(--color-background-elevated);
+  box-shadow: var(--shadow-md);
+}
+.ds-inset {
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+/* Section framing */
+.ds-eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.ds-hairline {
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* Metric / analytics language */
+.ds-stat {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* One focus treatment everywhere */
+.ds-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px color-mix(in srgb, var(--color-ring) 60%, transparent);
+}
+
+/* Navigation language: a calm rail item with a left accent on the active
+   route (not a heavy pill) — reads like an OS sidebar, not a nav template. */
+.ds-nav-item {
+  position: relative;
+  border-radius: var(--radius-md);
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.ds-nav-item[data-active="true"] {
+  background: color-mix(in srgb, var(--color-brand) 10%, transparent);
+  color: var(--color-foreground);
+}
+.ds-nav-item[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: -0.5rem;
+  top: 50%;
+  height: 1.15rem;
+  width: 3px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: var(--color-brand);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-brand) 60%, transparent);
+}
+
+/* A quiet "system is thinking / online" pulse — motion that signals
+   intelligence, used once in the top bar. */
+.ds-live-dot {
+  position: relative;
+  display: inline-flex;
+  height: 7px;
+  width: 7px;
+  border-radius: 999px;
+  background: var(--color-positive);
+}
+.ds-live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  animation: ds-ping 2.4s var(--ease-out) infinite;
+}
+@keyframes ds-ping {
+  0% { transform: scale(1); opacity: 0.6; }
+  70%, 100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* Scroll reveal — the app's one enter gesture. JS toggles .is-in. */
+.ds-reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out);
+}
+.ds-reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* Apple-calm micro-interactions -------------------------------------------- */
+
+/* Buttons/links that dip on press — tactile without being bouncy. */
+.ds-press {
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.ds-press:active {
+  transform: scale(0.965);
+}
+
+/* A whole card that lifts a hair on hover (pairs with .js-card spotlight). */
+.ds-raise {
+  transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
+}
+.ds-raise:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Underline that draws in from the left on hover — text links. */
+.ds-underline {
+  position: relative;
+}
+.ds-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  height: 1.5px;
+  width: 100%;
+  border-radius: 2px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.ds-underline:hover::after,
+.ds-underline:focus-visible::after {
+  transform: scaleX(1);
+}
+
+/* Horizontal scroller with content fading out at both edges. */
+.edge-fade-x {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -499,6 +690,7 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  .ds-reveal { opacity: 1; transform: none; }
 }
 
 /* Snapshot proof export (app/career-twin/proof/[snapshotId]): print only the
