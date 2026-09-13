@@ -2,8 +2,6 @@
 
 **An Evidence-Grounded, Confidence-Aware Agentic Career Operating System**
 
-### ▶️ [Watch the demo video](./demo.mp4)
-
 CareerPilot AI maintains a persistent **Career Twin** for each student, diagnoses root causes through **GraphRAG**, dynamically routes tasks through the **CARE Engine**, generates autonomous improvement missions, conducts evidence-based interview evaluation, and simulates alternative learning paths.
 
 ## Competition Positioning
